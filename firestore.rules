@@ -1,0 +1,61 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(groupId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
+
+    function isOwner(groupId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == 'owner';
+    }
+
+    function isActiveGroup(groupId) {
+      return get(/databases/$(database)/documents/groups/$(groupId)).data.status == 'active';
+    }
+
+    // Basic user profile - readable by any signed-in user, writable only by self
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /groups/{groupId} {
+      // Anyone signed in can read group metadata IF they know the doc id
+      // (needed to validate invite codes before joining)
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isOwner(groupId);
+
+      match /members/{memberId} {
+        // A member can read the member list only if they are already a member
+        allow read: if isMember(groupId);
+        // A user can add themselves as a member (join flow) - role must be 'member'
+        allow create: if isSignedIn() &&
+          request.auth.uid == memberId &&
+          request.resource.data.role == 'member';
+        // Only the owner can remove members or change roles
+        allow update, delete: if isOwner(groupId);
+      }
+
+      match /locations/{userId} {
+        // Only group members can read the live location feed
+        allow read: if isMember(groupId);
+        // A user can only ever write their OWN location, only while a
+        // member, and only while the trip is still active - prevents
+        // writes into a group that's already been ended/cleaned up.
+        allow write: if isSignedIn() &&
+          request.auth.uid == userId &&
+          isMember(groupId) &&
+          isActiveGroup(groupId);
+      }
+    }
+  }
+}

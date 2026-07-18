@@ -37,10 +37,16 @@ service cloud.firestore {
       match /members/{memberId} {
         // A member can read the member list only if they are already a member
         allow read: if isMember(groupId);
-        // A user can add themselves as a member (join flow) - role must be 'member'
+        // A user can add themselves as a member: either joining an existing
+        // group (role must be 'member'), or - in the same batch as group
+        // creation - adding themselves as 'owner' when they're the creator.
         allow create: if isSignedIn() &&
           request.auth.uid == memberId &&
-          request.resource.data.role == 'member';
+          (
+            request.resource.data.role == 'member' ||
+            (request.resource.data.role == 'owner' &&
+              get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid)
+          );
         // Only the owner can remove members or change roles
         allow update, delete: if isOwner(groupId);
       }

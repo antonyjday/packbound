@@ -16,12 +16,18 @@ class AuthService {
     final result = await _auth.signInAnonymously();
     final user = result.user!;
 
+    // Also set this on the Auth profile itself (not just the Firestore
+    // users doc) - map markers and the member roster read
+    // currentUser?.displayName, not the Firestore doc, when labeling "me".
+    await user.updateDisplayName(displayName);
+    await user.reload();
+
     await _db.collection('users').doc(user.uid).set({
       'displayName': displayName,
       'lastSeen': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    return user;
+    return _auth.currentUser!;
   }
 
   Future<void> signOut() => _auth.signOut();

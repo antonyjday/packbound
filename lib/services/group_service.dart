@@ -38,14 +38,18 @@ class GroupService {
       tripExpiresAt: Timestamp.fromDate(DateTime.now().add(tripLifetime)),
     );
 
-    final batch = _db.batch();
-    batch.set(groupRef, group.toMap());
-    batch.set(groupRef.collection('members').doc(ownerId), {
+    // Deliberately two sequential writes, not a batch/transaction: the
+    // members-doc create rule needs to `get()` this group doc to confirm
+    // `createdBy`, and that get() does not see sibling writes from the same
+    // batch/transaction - it would still find the group doc nonexistent and
+    // deny the whole write. Awaiting the group doc's creation first ensures
+    // it's already committed by the time the membership write is evaluated.
+    await groupRef.set(group.toMap());
+    await groupRef.collection('members').doc(ownerId).set({
       'joinedAt': FieldValue.serverTimestamp(),
       'role': 'owner',
       'sharingEnabled': true,
     });
-    await batch.commit();
 
     return group;
   }

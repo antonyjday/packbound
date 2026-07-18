@@ -74,6 +74,11 @@ class _MapScreenState extends State<MapScreen> {
   // countdown/warning banner reflects extensions immediately.
   Timestamp? _tripExpiresAt;
 
+  // Owner-controlled; false hides the share/invite button for non-owners.
+  // Seeded from widget.group so it's correct before the first group-doc
+  // snapshot arrives, then kept live from the listener below.
+  bool _membersCanInvite = true;
+
   // Banner is dismissible, but reappears if the severity level goes up
   // (e.g. dismissed the 4h-out warning, but the 1h-out one still shows).
   int _dismissedWarningLevel = 0;
@@ -84,6 +89,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    _membersCanInvite = widget.group.membersCanInvite;
     _staleTicker = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) setState(() {});
     });
@@ -129,6 +135,11 @@ class _MapScreenState extends State<MapScreen> {
           _lastEtaCalcAt = null;
           _lastEtaCalcPosition = null;
         });
+      }
+
+      final newMembersCanInvite = data?['membersCanInvite'] ?? true;
+      if (newMembersCanInvite != _membersCanInvite && mounted) {
+        setState(() => _membersCanInvite = newMembersCanInvite);
       }
 
       if (status == 'ended' && !_groupEnded) {
@@ -300,6 +311,19 @@ class _MapScreenState extends State<MapScreen> {
       await _groupService.clearRoute(widget.group.id);
     } catch (e) {
       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
+  Future<void> _toggleMembersCanInvite() async {
+    final next = !_membersCanInvite;
+    setState(() => _membersCanInvite = next); // optimistic; listener reconciles
+    try {
+      await _groupService.setMembersCanInvite(widget.group.id, next);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _membersCanInvite = !next);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
@@ -562,6 +586,7 @@ class _MapScreenState extends State<MapScreen> {
                 if (value == 'end') _confirmEndTrip();
                 if (value == 'route') _openSetRoute();
                 if (value == 'clear_route') _clearRoute();
+                if (value == 'toggle_invite') _toggleMembersCanInvite();
               },
               itemBuilder: (context) => [
                 const PopupMenuItem(
@@ -597,18 +622,31 @@ class _MapScreenState extends State<MapScreen> {
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
+                PopupMenuItem(
+                  value: 'toggle_invite',
+                  child: ListTile(
+                    leading: Icon(
+                      _membersCanInvite ? Icons.check_box : Icons.check_box_outline_blank,
+                    ),
+                    title: const Text('Allow members to invite'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
               ],
             ),
-          IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: 'Invite others',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => InviteScreen(group: widget.group)),
-              );
-            },
-          ),
+          // Hidden from non-owners when the owner has turned off member
+          // invites - the owner always keeps access to it.
+          if (_isOwner || _membersCanInvite)
+            IconButton(
+              icon: const Icon(Icons.share),
+              tooltip: 'Invite others',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => InviteScreen(group: widget.group)),
+                );
+              },
+            ),
         ],
       ),
       body: StreamBuilder<List<LocationPoint>>(

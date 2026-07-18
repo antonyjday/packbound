@@ -104,6 +104,16 @@ class GroupService {
     });
   }
 
+  /// Owner-only: controls whether non-owner members see/can use the
+  /// "Invite others" share button. Covered by the existing isOwner()-gated
+  /// update rule, same as extendTrip/setRoute - no rules change needed.
+  Future<void> setMembersCanInvite(String groupId, bool allowed) {
+    return _db
+        .collection('groups')
+        .doc(groupId)
+        .update({'membersCanInvite': allowed});
+  }
+
   /// Owner-only: sets (or replaces) the group's shared trip plan. Stored as a
   /// plain field on the group doc, so it's covered by the existing
   /// isOwner()-gated `update` rule - no separate security rule needed.

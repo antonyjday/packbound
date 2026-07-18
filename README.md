@@ -53,17 +53,28 @@ see [CLEANUP.md](CLEANUP.md).
 
 ## TODO
 
+**Done:**
+- [x] Cloud Functions deployed and active (`trackGroupActivity`,
+      `endInactiveGroups`, `warnExpiringGroups`, `cleanupEndedGroupData`,
+      `purgeOldEndedGroups`) — group expiry/cleanup now actually runs.
+- [x] Verified real multi-device location sharing end-to-end on two Android
+      emulators: create group, join by invite code, live positions on both
+      maps, roster names.
+- [x] Fixed: group creation was completely broken
+      (`cloud_firestore/permission-denied` on every "Create group" tap) — the
+      owner-membership write and the group-doc write were in the same
+      WriteBatch, but the membership rule's `get()` can't see a sibling
+      write from the same batch, so it always got denied. Now two sequential
+      writes.
+- [x] Fixed: map markers and the member roster showed blank names — the
+      name entered at sign-in was saved to Firestore but never set on the
+      Firebase Auth profile, which is what those views actually read.
+
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
       `GoogleService-Info.plist` (needs to be regenerated, ideally from a Mac
       with Xcode installed). iOS hasn't been built or run at all yet.
 - [ ] iOS Google Maps API key — still a placeholder in `AppDelegate.swift`.
-- [ ] Deploy the Cloud Functions (`cd functions && npm install && firebase
-      deploy --only functions`) — needs the Firebase project on the Blaze
-      (pay-as-you-go) plan. Without this, groups never auto-expire or clean up.
-- [ ] Test real multi-device location sharing (so far only verified sign-in +
-      group creation on a single emulator; the live map with 2+ members
-      hasn't been tried).
 - [ ] Release signing — the current Android Maps API key is restricted to the
       debug keystore's fingerprint only. Generate a release keystore and add
       its SHA-1 to the key's restrictions (or create a separate release key)

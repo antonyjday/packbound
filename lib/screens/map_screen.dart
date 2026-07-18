@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' show min, max;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -6,11 +7,15 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/group.dart';
 import '../models/location_point.dart';
+import '../models/route_plan.dart';
 import '../services/auth_service.dart';
+import '../services/directions_service.dart';
 import '../services/group_service.dart';
 import '../services/location_service.dart';
+import '../utils/polyline_codec.dart';
 import 'location_permission_screen.dart';
 import 'invite_screen.dart';
+import 'set_route_screen.dart';
 import '../widgets/convoy_status_list.dart';
 
 class MapScreen extends StatefulWidget {
@@ -25,9 +30,23 @@ class _MapScreenState extends State<MapScreen> {
   final _locationService = LocationService();
   final _groupService = GroupService();
   final _authService = AuthService();
+  final _directionsService = DirectionsService();
   bool _sharing = false;
   bool _isOwner = false;
   GoogleMapController? _mapController;
+
+  // The group's shared trip plan, synced live from the group doc (same
+  // listener as trip-expiry below). Null if the owner hasn't set one.
+  RoutePlan? _route;
+
+  // This viewer's own live progress toward the route's destination -
+  // separate from the route's static distance/duration, and recalculated
+  // (throttled) as this device moves. See _maybeRecalculateMyEta.
+  double? _myEtaDistanceMeters;
+  Duration? _myEtaDuration;
+  bool _etaCalcInFlight = false;
+  DateTime? _lastEtaCalcAt;
+  RouteStop? _lastEtaCalcPosition;
 
   // Forces a rebuild every few seconds so each marker's "seconds since
   // update" (and therefore its live/weak/lost status) stays current even
@@ -92,6 +111,24 @@ class _MapScreenState extends State<MapScreen> {
       final newExpiry = data?['tripExpiresAt'] as Timestamp?;
       if (newExpiry != _tripExpiresAt && mounted) {
         setState(() => _tripExpiresAt = newExpiry);
+      }
+
+      final routeData = data?['route'];
+      final newRoute = routeData != null
+          ? RoutePlan.fromMap(Map<String, dynamic>.from(routeData))
+          : null;
+      // Compare by polyline rather than object identity - a fresh RoutePlan
+      // is parsed on every snapshot even when nothing routing-related
+      // changed, and resetting the live ETA on every unrelated group-doc
+      // update (e.g. trip-expiry ticking) would make it flicker pointlessly.
+      if (newRoute?.polyline != _route?.polyline && mounted) {
+        setState(() {
+          _route = newRoute;
+          _myEtaDistanceMeters = null;
+          _myEtaDuration = null;
+          _lastEtaCalcAt = null;
+          _lastEtaCalcPosition = null;
+        });
       }
 
       if (status == 'ended' && !_groupEnded) {
@@ -249,6 +286,105 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _openSetRoute() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SetRouteScreen(group: widget.group, initialRoute: _route),
+      ),
+    );
+  }
+
+  Future<void> _clearRoute() async {
+    try {
+      await _groupService.clearRoute(widget.group.id);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
+  String _formatDistanceDuration(int meters, int seconds) {
+    final miles = meters / 1609.34;
+    final mins = (seconds / 60).round();
+    final h = mins ~/ 60;
+    final m = mins % 60;
+    final timeLabel = h > 0 ? '${h}h ${m}m' : '${m}m';
+    return '${miles.toStringAsFixed(1)} mi · $timeLabel';
+  }
+
+  /// Recomputes *this device's* live distance/ETA to the route's
+  /// destination. Deliberately throttled - both at most once every 2
+  /// minutes AND only once the device has moved 300m+ since the last calc -
+  /// an unthrottled per-location-tick (every ~3s) recalculation would
+  /// multiply Directions API billing for no real benefit. Scoped to my own
+  /// progress only, not a live ETA for every member shown to everyone,
+  /// which would multiply calls by member count.
+  void _maybeRecalculateMyEta(List<LocationPoint> points) {
+    if (_route == null || _etaCalcInFlight) return;
+
+    final mine = points.where((p) => p.userId == _authService.uid);
+    if (mine.isEmpty) return;
+    final myPoint = mine.first;
+
+    final now = DateTime.now();
+    final dueByTime = _lastEtaCalcAt == null ||
+        now.difference(_lastEtaCalcAt!) >= const Duration(minutes: 2);
+    final dueByDistance = _lastEtaCalcPosition == null ||
+        Geolocator.distanceBetween(
+              _lastEtaCalcPosition!.lat,
+              _lastEtaCalcPosition!.lng,
+              myPoint.lat,
+              myPoint.lng,
+            ) >=
+            300;
+
+    if (!(dueByTime && dueByDistance)) return;
+
+    _etaCalcInFlight = true;
+    _lastEtaCalcAt = now;
+    _lastEtaCalcPosition = RouteStop(lat: myPoint.lat, lng: myPoint.lng);
+
+    _directionsService
+        .route(
+          origin: RouteStop(lat: myPoint.lat, lng: myPoint.lng),
+          destination: _route!.destination,
+          waypoints: const [],
+        )
+        .then((result) {
+      if (!mounted) return;
+      setState(() {
+        _myEtaDistanceMeters = result.distanceMeters.toDouble();
+        _myEtaDuration = Duration(seconds: result.durationSeconds);
+      });
+    }).catchError((_) {
+      // A live ETA is a nice-to-have - don't interrupt the user with an
+      // error toast for a background recalculation failure.
+    }).whenComplete(() => _etaCalcInFlight = false);
+  }
+
+  Set<Marker> _buildRouteMarkers(RoutePlan route) {
+    final markers = <Marker>{
+      Marker(
+        markerId: const MarkerId('route_destination'),
+        position: LatLng(route.destination.lat, route.destination.lng),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+        infoWindow: const InfoWindow(title: 'Destination'),
+      ),
+    };
+    for (var i = 0; i < route.waypoints.length; i++) {
+      final w = route.waypoints[i];
+      markers.add(Marker(
+        markerId: MarkerId('route_waypoint_$i'),
+        position: LatLng(w.lat, w.lng),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        infoWindow: InfoWindow(title: 'Stop ${i + 1}'),
+      ));
+    }
+    return markers;
+  }
+
   @override
   void dispose() {
     _staleTicker?.cancel();
@@ -345,35 +481,38 @@ class _MapScreenState extends State<MapScreen> {
     }).toSet();
   }
 
-  /// Fits the camera to show every *actively tracked* marker - members
+  /// Fits the camera to show every *actively tracked* member marker (members
   /// whose signal is `lost` are excluded so a phone that's been off for
-  /// hours doesn't drag the zoom/pan out to include a stale pin. Lost
-  /// members still get a marker on the map, just not counted for framing.
+  /// hours doesn't drag the zoom/pan out to include a stale pin - they still
+  /// get a marker, just not counted for framing) plus, when a route is set,
+  /// its destination and waypoints - so the manual refit and the initial
+  /// auto-fit both reveal the whole planned trip, not just where people are.
   void _fitCameraToPoints(List<LocationPoint> points) {
     if (_mapController == null) return;
 
-    final active = points.where((p) => p.status != SignalStatus.lost).toList();
-    if (active.isEmpty) return; // nothing actively tracked - leave camera as-is
+    final active = points.where((p) => p.status != SignalStatus.lost);
+    final route = _route;
+    final routeLats = route == null
+        ? const <double>[]
+        : [route.destination.lat, ...route.waypoints.map((w) => w.lat)];
+    final routeLngs = route == null
+        ? const <double>[]
+        : [route.destination.lng, ...route.waypoints.map((w) => w.lng)];
 
-    if (active.length == 1) {
+    final lats = [...active.map((p) => p.lat), ...routeLats];
+    final lngs = [...active.map((p) => p.lng), ...routeLngs];
+    if (lats.isEmpty) return; // nothing to frame - leave camera as-is
+
+    if (lats.length == 1) {
       _mapController!.animateCamera(
-        CameraUpdate.newLatLngZoom(LatLng(active.first.lat, active.first.lng), 14),
+        CameraUpdate.newLatLngZoom(LatLng(lats.first, lngs.first), 14),
       );
       return;
     }
 
-    double minLat = active.first.lat, maxLat = active.first.lat;
-    double minLng = active.first.lng, maxLng = active.first.lng;
-    for (final p in active) {
-      minLat = p.lat < minLat ? p.lat : minLat;
-      maxLat = p.lat > maxLat ? p.lat : maxLat;
-      minLng = p.lng < minLng ? p.lng : minLng;
-      maxLng = p.lng > maxLng ? p.lng : maxLng;
-    }
-
     final bounds = LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
+      southwest: LatLng(lats.reduce(min), lngs.reduce(min)),
+      northeast: LatLng(lats.reduce(max), lngs.reduce(max)),
     );
 
     // Padding keeps markers from sitting flush against screen edges/UI
@@ -384,7 +523,7 @@ class _MapScreenState extends State<MapScreen> {
   void _maybeAutoFit(List<LocationPoint> points) {
     if (_hasAutoFitted || _mapController == null) return;
     final hasActive = points.any((p) => p.status != SignalStatus.lost);
-    if (!hasActive) return;
+    if (!hasActive && _route == null) return;
     _hasAutoFitted = true;
     // Let the map finish its first frame before animating the camera.
     WidgetsBinding.instance.addPostFrameCallback((_) => _fitCameraToPoints(points));
@@ -421,6 +560,8 @@ class _MapScreenState extends State<MapScreen> {
               onSelected: (value) {
                 if (value == 'extend') _extendTrip();
                 if (value == 'end') _confirmEndTrip();
+                if (value == 'route') _openSetRoute();
+                if (value == 'clear_route') _clearRoute();
               },
               itemBuilder: (context) => [
                 const PopupMenuItem(
@@ -439,6 +580,23 @@ class _MapScreenState extends State<MapScreen> {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
+                PopupMenuItem(
+                  value: 'route',
+                  child: ListTile(
+                    leading: const Icon(Icons.alt_route),
+                    title: Text(_route == null ? 'Set route' : 'Edit route'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                if (_route != null)
+                  const PopupMenuItem(
+                    value: 'clear_route',
+                    child: ListTile(
+                      leading: Icon(Icons.route_outlined, color: Colors.red),
+                      title: Text('Clear route'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
               ],
             ),
           IconButton(
@@ -459,7 +617,22 @@ class _MapScreenState extends State<MapScreen> {
           final points = snapshot.data ?? [];
           _checkForStatusTransitions(points);
           _maybeAutoFit(points);
-          final markers = _buildMarkers(points);
+          _maybeRecalculateMyEta(points);
+          final route = _route;
+          final markers = {
+            ..._buildMarkers(points),
+            if (route != null) ..._buildRouteMarkers(route),
+          };
+          final polylines = route == null
+              ? const <Polyline>{}
+              : {
+                  Polyline(
+                    polylineId: const PolylineId('route'),
+                    points: decodePolyline(route.polyline),
+                    color: Colors.blueAccent,
+                    width: 5,
+                  ),
+                };
           final lostCount =
               points.where((p) => p.status == SignalStatus.lost).length;
           final expiryBanner = _buildExpiryBanner();
@@ -472,6 +645,7 @@ class _MapScreenState extends State<MapScreen> {
                   zoom: 4,
                 ),
                 markers: markers,
+                polylines: polylines,
                 onMapCreated: (c) {
                   _mapController = c;
                   // Map may finish initializing after points already
@@ -540,6 +714,35 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
+              // Route info - static full-trip distance/duration, plus this
+              // viewer's own live progress once the first throttled
+              // recalculation completes (see _maybeRecalculateMyEta).
+              if (route != null)
+                Positioned(
+                  bottom: 90,
+                  left: 24,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _RouteInfoChip(
+                        icon: Icons.alt_route,
+                        label: 'Full route: '
+                            '${_formatDistanceDuration(route.distanceMeters, route.durationSeconds)}',
+                      ),
+                      if (_myEtaDuration != null && _myEtaDistanceMeters != null) ...[
+                        const SizedBox(height: 6),
+                        _RouteInfoChip(
+                          icon: Icons.navigation,
+                          label: 'You: '
+                              '${_formatDistanceDuration(_myEtaDistanceMeters!.round(), _myEtaDuration!.inSeconds)}'
+                              ' to destination',
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
               Positioned(
                 bottom: 24,
                 left: 24,
@@ -557,6 +760,32 @@ class _MapScreenState extends State<MapScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _RouteInfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _RouteInfoChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 16),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+        ],
       ),
     );
   }

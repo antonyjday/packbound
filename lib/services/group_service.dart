@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/group.dart';
+import '../models/route_plan.dart';
 
 class GroupService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -101,6 +102,20 @@ class GroupService {
       'tripExpiresAt': Timestamp.fromDate(DateTime.now().add(tripExtension)),
       'expiryWarningLevel': 0,
     });
+  }
+
+  /// Owner-only: sets (or replaces) the group's shared trip plan. Stored as a
+  /// plain field on the group doc, so it's covered by the existing
+  /// isOwner()-gated `update` rule - no separate security rule needed.
+  Future<void> setRoute(String groupId, RoutePlan route) {
+    return _db.collection('groups').doc(groupId).update({'route': route.toMap()});
+  }
+
+  Future<void> clearRoute(String groupId) {
+    return _db
+        .collection('groups')
+        .doc(groupId)
+        .update({'route': FieldValue.delete()});
   }
 
   Future<void> leaveGroup(String groupId, String userId) {

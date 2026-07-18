@@ -15,6 +15,14 @@ Also add your Maps API key into `AndroidManifest.xml` (already scaffolded —
 replace `YOUR_ANDROID_GOOGLE_MAPS_API_KEY`). Get one from the Google Cloud
 Console with the "Maps SDK for Android" enabled.
 
+The same key also needs the **Directions API** enabled (used by
+`DirectionsService` to resolve the owner's planned route into an actual
+driving path) - it's called via raw REST from the app, not the Maps SDK, so
+requests include `X-Android-Package`/`X-Android-Cert` headers to have the
+key's Android app restriction honored. The key string itself lives in
+`lib/services/directions_service.dart` alongside those headers - update both
+together if you rotate the key or change the app's signing cert.
+
 Runtime permission flow to implement in the UI (the `ensurePermission()`
 method in `location_service.dart` handles the requests, but Android forces
 a specific UX):

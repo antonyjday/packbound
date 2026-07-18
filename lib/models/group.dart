@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'route_plan.dart';
 
 class ConvoyGroup {
   final String id;
@@ -9,6 +10,7 @@ class ConvoyGroup {
   final String status; // 'active' | 'ended'
   final Timestamp? tripExpiresAt; // hard cap; owner can push this back via extendTrip()
   final int expiryWarningLevel; // 0 = none, 1 = early warning sent, 2 = final warning sent
+  final RoutePlan? route; // owner-set shared trip plan; null if none set yet
 
   ConvoyGroup({
     required this.id,
@@ -19,10 +21,12 @@ class ConvoyGroup {
     required this.status,
     this.tripExpiresAt,
     this.expiryWarningLevel = 0,
+    this.route,
   });
 
   factory ConvoyGroup.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
+    final routeData = data['route'];
     return ConvoyGroup(
       id: doc.id,
       name: data['name'] ?? '',
@@ -32,6 +36,9 @@ class ConvoyGroup {
       status: data['status'] ?? 'active',
       tripExpiresAt: data['tripExpiresAt'],
       expiryWarningLevel: data['expiryWarningLevel'] ?? 0,
+      route: routeData != null
+          ? RoutePlan.fromMap(Map<String, dynamic>.from(routeData))
+          : null,
     );
   }
 

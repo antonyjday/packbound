@@ -16,6 +16,10 @@ position on a shared map for the duration of the trip.
   owner), auto-end after 10h of inactivity, and get an in-app 4h/1h warning
   banner as the deadline approaches. Ended groups have their live location
   data wiped immediately; group metadata is purged after 30 days.
+- **Shared trip route** — the owner taps a destination and any planned stops
+  right on the map; it's resolved into a real driving route (via the
+  Directions API) and shown live to every member, along with the full-trip
+  distance/ETA and each member's own live distance/ETA to the destination.
 - **Offline awareness** — banner when the device loses connectivity.
 
 ## Tech stack
@@ -81,6 +85,12 @@ see [CLEANUP.md](CLEANUP.md).
       before shipping a release build.
 
 **Known gaps / follow-ups called out in the code:**
+- [ ] Route search/autocomplete — setting a destination is currently
+      tap-on-the-map only. Address search would need the Places API enabled
+      (separate billing surface from Directions/Maps SDK) - deferred for now.
+- [ ] Live "my ETA" always routes straight to the final destination, not the
+      next unvisited waypoint - there's no tracking of which stops a member
+      has already passed.
 - [ ] Push notifications for trip-expiry warnings — currently in-app only, so
       the owner only sees them if they have the app open before the deadline
       (`warnExpiringGroups` in `functions/src/index.ts` is written as the

@@ -14,6 +14,16 @@ class LocationService {
     return Geolocator.checkPermission();
   }
 
+  /// One-off position fetch (distinct from the continuous stream started by
+  /// `startSharing`) - used e.g. as the origin when the owner sets a route.
+  /// Assumes permission has already been granted (call `ensurePermission()`
+  /// first).
+  Future<Position> getCurrentPosition() {
+    return Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+    );
+  }
+
   /// Requests OS-level location permission. Call before starting to share.
   /// Two-step request: first "while in use", then escalate to "always" so
   /// sharing keeps working while the app is minimized during a drive.

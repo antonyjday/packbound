@@ -30,11 +30,17 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
   final _groupService = GroupService();
   final _directionsService = DirectionsService();
 
+  // Roughly fits a 50mi radius around the center point on a phone screen -
+  // keeps the initial view scoped to a plausible destination range instead
+  // of opening on the whole world.
+  static const _nearbyZoom = 9.0;
+  static const _worldFallbackCamera = CameraPosition(target: LatLng(0, 0), zoom: 2);
+
   _TapMode _mode = _TapMode.destination;
   RouteStop? _destination;
   List<RouteStop> _waypoints = [];
-  GoogleMapController? _mapController;
   bool _saving = false;
+  late final Future<CameraPosition> _initialCameraFuture;
 
   @override
   void initState() {
@@ -43,17 +49,36 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
     if (initial != null) {
       _destination = initial.destination;
       _waypoints = List.of(initial.waypoints);
+      _initialCameraFuture = Future.value(CameraPosition(
+        target: LatLng(initial.destination.lat, initial.destination.lng),
+        zoom: 12,
+      ));
     } else {
-      _centerOnLastKnownPosition();
+      _initialCameraFuture = _resolveNearbyCamera();
     }
   }
 
-  Future<void> _centerOnLastKnownPosition() async {
-    final last = await Geolocator.getLastKnownPosition();
-    if (last != null && _destination == null && _waypoints.isEmpty && mounted) {
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(LatLng(last.latitude, last.longitude), 13),
+  // Actively fetches a fresh position rather than relying on
+  // Geolocator.getLastKnownPosition(), which is frequently unpopulated
+  // (e.g. right after a fresh install/process start) and would silently
+  // fall back to a world view - exactly the friction this replaces.
+  // Doesn't force a permission prompt on screen-open: if permission isn't
+  // already granted, this just falls back to the world view; the prompt
+  // stays tied to the actual save action in _save() instead.
+  Future<CameraPosition> _resolveNearbyCamera() async {
+    try {
+      final status = await _locationService.checkPermissionStatus();
+      final granted = status == LocationPermission.always ||
+          status == LocationPermission.whileInUse;
+      if (!granted) return _worldFallbackCamera;
+
+      final position = await _locationService.getCurrentPosition();
+      return CameraPosition(
+        target: LatLng(position.latitude, position.longitude),
+        zoom: _nearbyZoom,
       );
+    } catch (_) {
+      return _worldFallbackCamera;
     }
   }
 
@@ -149,10 +174,6 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
   @override
   Widget build(BuildContext context) {
     final initial = widget.initialRoute;
-    final startCamera = initial != null
-        ? CameraPosition(
-            target: LatLng(initial.destination.lat, initial.destination.lng), zoom: 12)
-        : const CameraPosition(target: LatLng(0, 0), zoom: 2);
 
     return Scaffold(
       appBar: AppBar(
@@ -167,78 +188,88 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Stack(
-              children: [
-                GoogleMap(
-                  initialCameraPosition: startCamera,
-                  onMapCreated: (c) => _mapController = c,
-                  onTap: _onMapTap,
-                  markers: _buildMarkers(),
-                ),
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  right: 12,
-                  child: Row(
-                    children: [
-                      ChoiceChip(
-                        label: const Text('Destination'),
-                        selected: _mode == _TapMode.destination,
-                        onSelected: (_) => setState(() => _mode = _TapMode.destination),
+      body: FutureBuilder<CameraPosition>(
+        future: _initialCameraFuture,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final startCamera = snapshot.data!;
+
+          return Column(
+            children: [
+              Expanded(
+                child: Stack(
+                  children: [
+                    GoogleMap(
+                      initialCameraPosition: startCamera,
+                      onTap: _onMapTap,
+                      markers: _buildMarkers(),
+                    ),
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      right: 12,
+                      child: Row(
+                        children: [
+                          ChoiceChip(
+                            label: const Text('Destination'),
+                            selected: _mode == _TapMode.destination,
+                            onSelected: (_) => setState(() => _mode = _TapMode.destination),
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: const Text('Add stop'),
+                            selected: _mode == _TapMode.stop,
+                            onSelected: (_) => setState(() => _mode = _TapMode.stop),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      ChoiceChip(
-                        label: const Text('Add stop'),
-                        selected: _mode == _TapMode.stop,
-                        onSelected: (_) => setState(() => _mode = _TapMode.stop),
+                    ),
+                  ],
+                ),
+              ),
+              SafeArea(
+                top: false,
+                child: ConstrainedBox(
+                  constraints:
+                      BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.35),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.flag, color: Colors.deepPurple),
+                        title: Text(_destination == null
+                            ? 'Tap the map to set a destination'
+                            : 'Destination set — tap the map to move it'),
+                        dense: true,
+                      ),
+                      Flexible(
+                        child: ReorderableListView.builder(
+                          shrinkWrap: true,
+                          itemCount: _waypoints.length,
+                          onReorder: _reorderWaypoints,
+                          itemBuilder: (context, index) => ListTile(
+                            key: ValueKey('waypoint_$index'),
+                            leading: CircleAvatar(radius: 12, child: Text('${index + 1}')),
+                            title: Text(
+                              '${_waypoints[index].lat.toStringAsFixed(4)}, '
+                              '${_waypoints[index].lng.toStringAsFixed(4)}',
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => _removeWaypoint(index),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-          SafeArea(
-            top: false,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.35),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.flag, color: Colors.deepPurple),
-                    title: Text(_destination == null
-                        ? 'Tap the map to set a destination'
-                        : 'Destination set — tap the map to move it'),
-                    dense: true,
-                  ),
-                  Flexible(
-                    child: ReorderableListView.builder(
-                      shrinkWrap: true,
-                      itemCount: _waypoints.length,
-                      onReorder: _reorderWaypoints,
-                      itemBuilder: (context, index) => ListTile(
-                        key: ValueKey('waypoint_$index'),
-                        leading: CircleAvatar(radius: 12, child: Text('${index + 1}')),
-                        title: Text(
-                          '${_waypoints[index].lat.toStringAsFixed(4)}, '
-                          '${_waypoints[index].lng.toStringAsFixed(4)}',
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => _removeWaypoint(index),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

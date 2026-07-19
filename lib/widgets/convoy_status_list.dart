@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/location_point.dart';
+import '../utils/member_colors.dart';
 
 class ConvoyStatusList extends StatelessWidget {
   final List<LocationPoint> points;
@@ -55,12 +56,19 @@ class ConvoyStatusList extends StatelessWidget {
       itemBuilder: (context, i) {
         final p = sorted[i];
         final isMe = p.userId == currentUserId;
-        final color = _statusColor(p.status);
+        final statusColor = _statusColor(p.status);
+        // Same color this member's map marker uses - lets you match a
+        // roster row to its pin on the map at a glance, without tapping
+        // markers one by one to find out who's who.
+        final memberColor = colorForMarkerHue(markerHueForUser(p.userId));
 
         return ListTile(
           leading: Stack(
             children: [
-              const CircleAvatar(child: Icon(Icons.person)),
+              CircleAvatar(
+                backgroundColor: memberColor,
+                child: const Icon(Icons.person, color: Colors.white),
+              ),
               Positioned(
                 right: 0,
                 bottom: 0,
@@ -68,7 +76,7 @@ class ConvoyStatusList extends StatelessWidget {
                   width: 12,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: color,
+                    color: statusColor,
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
                   ),

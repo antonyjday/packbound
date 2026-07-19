@@ -73,6 +73,11 @@ see [CLEANUP.md](CLEANUP.md).
 - [x] Fixed: map markers and the member roster showed blank names — the
       name entered at sign-in was saved to Firestore but never set on the
       Firebase Auth profile, which is what those views actually read.
+- [x] Member markers now get a distinct, consistent color per user (instead
+      of color meaning signal status, which made every "live" member look
+      identical). Signal status is now shown via marker opacity instead.
+      The roster's avatar uses the same color as its member's marker, acting
+      as a legend without extra UI on the map itself.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -85,6 +90,12 @@ see [CLEANUP.md](CLEANUP.md).
       before shipping a release build.
 
 **Known gaps / follow-ups called out in the code:**
+- [ ] Set route screen starts at a zoomed-out world view (see
+      `SetRouteScreen._centerOnLastKnownPosition` — `getLastKnownPosition()`
+      often isn't populated yet, so it silently falls back to world view).
+      Instead, default to a ~50 mile radius around the owner's current
+      location and let them zoom out from there if they really need to,
+      rather than making them navigate from the whole world in.
 - [ ] Route search/autocomplete — setting a destination is currently
       tap-on-the-map only. Address search would need the Places API enabled
       (separate billing surface from Directions/Maps SDK) - deferred for now.

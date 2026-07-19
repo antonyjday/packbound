@@ -12,6 +12,7 @@ import '../services/auth_service.dart';
 import '../services/directions_service.dart';
 import '../services/group_service.dart';
 import '../services/location_service.dart';
+import '../utils/member_colors.dart';
 import '../utils/polyline_codec.dart';
 import 'location_permission_screen.dart';
 import 'invite_screen.dart';
@@ -484,12 +485,19 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  // Color identifies WHO a marker is (consistent per user, matched by the
+  // roster's avatar dot - see ConvoyStatusList), separate from signal
+  // status, which is now shown via opacity instead of color: markers used
+  // to all look identical whenever multiple members were "live" (same
+  // orange pin), making it impossible to tell who was who without tapping
+  // each one.
   Set<Marker> _buildMarkers(List<LocationPoint> points) {
     return points.map((p) {
-      final hue = switch (p.status) {
-        SignalStatus.live => BitmapDescriptor.hueOrange,
-        SignalStatus.weak => BitmapDescriptor.hueYellow,
-        SignalStatus.lost => BitmapDescriptor.hueRed,
+      final hue = markerHueForUser(p.userId);
+      final alpha = switch (p.status) {
+        SignalStatus.live => 1.0,
+        SignalStatus.weak => 0.65,
+        SignalStatus.lost => 0.35,
       };
       final snippet = switch (p.status) {
         SignalStatus.live => '${p.speed.toStringAsFixed(0)} m/s',
@@ -501,6 +509,7 @@ class _MapScreenState extends State<MapScreen> {
         position: LatLng(p.lat, p.lng),
         infoWindow: InfoWindow(title: p.displayName, snippet: snippet),
         icon: BitmapDescriptor.defaultMarkerWithHue(hue),
+        alpha: alpha,
       );
     }).toSet();
   }

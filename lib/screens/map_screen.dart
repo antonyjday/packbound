@@ -58,6 +58,13 @@ class _MapScreenState extends State<MapScreen> {
   DateTime? _lastEtaCalcAt;
   RouteStop? _lastEtaCalcPosition;
 
+  // Which leg of the route the "step through trip" button last jumped the
+  // camera to: -1 means "at the start point", 0..waypoints.length-1 are the
+  // stops in order, and waypoints.length is the destination. Pressing again
+  // advances one leg, wrapping back to -1 after the destination. Reset to
+  // -1 whenever the route itself changes (see the group-doc listener).
+  int _routeStepIndex = -1;
+
   // How close to a waypoint counts as "arrived" for the purposes of the
   // live ETA - waypoints within this radius are treated as already passed
   // and routed past, rather than back through, on the next recalculation.
@@ -151,7 +158,17 @@ class _MapScreenState extends State<MapScreen> {
           _myRoutePolyline = null;
           _lastEtaCalcAt = null;
           _lastEtaCalcPosition = null;
+          _routeStepIndex = -1;
         });
+        // A newly-set (or newly-loaded) route should put the camera on its
+        // start point first, not wherever the "fit everyone + the route"
+        // view would land (see _maybeAutoFit, which defers to this when a
+        // route is present) - the owner may be planning a trip that starts
+        // somewhere other than where members currently are.
+        if (newRoute != null) {
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => _focusOnRouteStart(newRoute));
+        }
       }
 
       final newMembersCanInvite = data?['membersCanInvite'] ?? true;
@@ -607,11 +624,56 @@ class _MapScreenState extends State<MapScreen> {
 
   void _maybeAutoFit(List<LocationPoint> points) {
     if (_hasAutoFitted || _mapController == null) return;
+    // When a route is set, the group-doc listener's _focusOnRouteStart
+    // handles the initial camera position instead (the route's start
+    // point, not a fit-everyone-plus-the-route view) - deliberately not
+    // marking _hasAutoFitted here so this can still fire later if the
+    // route is cleared.
+    if (_route != null) return;
     final hasActive = points.any((p) => p.status != SignalStatus.lost);
-    if (!hasActive && _route == null) return;
+    if (!hasActive) return;
     _hasAutoFitted = true;
     // Let the map finish its first frame before animating the camera.
     WidgetsBinding.instance.addPostFrameCallback((_) => _fitCameraToPoints(points));
+  }
+
+  /// Centers the camera on the route's start point - see the group-doc
+  /// listener (route just changed) and onMapCreated (route already existed
+  /// when the map finished initializing).
+  void _focusOnRouteStart(RoutePlan route) {
+    _mapController?.animateCamera(
+      CameraUpdate.newLatLngZoom(LatLng(route.origin.lat, route.origin.lng), 15),
+    );
+  }
+
+  /// Every stop after the start, in order, ending with the destination -
+  /// what the "step through trip" button cycles across.
+  List<RouteStop> _routeLegsAfterStart(RoutePlan route) =>
+      [...route.waypoints, route.destination];
+
+  /// Advances the "step through trip" button one leg: first press lands on
+  /// the first stop (or the destination directly, if there are no stops),
+  /// each subsequent press moves to the next one, and pressing again after
+  /// the destination wraps back around to the start point.
+  void _stepThroughRoute(RoutePlan route) {
+    final legs = _routeLegsAfterStart(route);
+    final nextIndex = _routeStepIndex + 1;
+    setState(() => _routeStepIndex = nextIndex >= legs.length ? -1 : nextIndex);
+    final target = _routeStepIndex == -1 ? route.origin : legs[_routeStepIndex];
+    _mapController?.animateCamera(
+      CameraUpdate.newLatLngZoom(LatLng(target.lat, target.lng), 15),
+    );
+  }
+
+  /// Describes what the *next* press of the step button will do, so the
+  /// tooltip reflects the upcoming jump rather than the current position.
+  String _nextRouteStepLabel(RoutePlan route) {
+    final legs = _routeLegsAfterStart(route);
+    final nextIndex = _routeStepIndex + 1;
+    if (nextIndex >= legs.length) return 'Back to start';
+    return nextIndex == legs.length - 1
+        ? 'Jump to destination'
+        : 'Jump to stop ${nextIndex + 1}';
   }
 
   void _showStatusList(List<LocationPoint> points) {
@@ -763,9 +825,13 @@ class _MapScreenState extends State<MapScreen> {
                 polylines: polylines,
                 onMapCreated: (c) {
                   _mapController = c;
-                  // Map may finish initializing after points already
-                  // arrived (e.g. slow device) - fit immediately in that case.
-                  _maybeAutoFit(points);
+                  // Map may finish initializing after points/route already
+                  // arrived (e.g. slow device) - apply immediately in that case.
+                  if (route != null) {
+                    _focusOnRouteStart(route);
+                  } else {
+                    _maybeAutoFit(points);
+                  }
                 },
                 myLocationEnabled: true,
               ),
@@ -828,6 +894,21 @@ class _MapScreenState extends State<MapScreen> {
                   child: const Icon(Icons.center_focus_strong),
                 ),
               ),
+
+              // Steps the camera through the trip: start point, then each
+              // stop in order, then the destination, then wraps back to
+              // the start - see _stepThroughRoute.
+              if (route != null)
+                Positioned(
+                  top: 12,
+                  right: 124,
+                  child: FloatingActionButton.small(
+                    heroTag: 'stepRoute',
+                    onPressed: () => _stepThroughRoute(route),
+                    tooltip: _nextRouteStepLabel(route),
+                    child: const Icon(Icons.skip_next),
+                  ),
+                ),
 
               // Route info - static full-trip distance/duration, plus this
               // viewer's own live progress once the first throttled

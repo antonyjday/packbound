@@ -25,7 +25,10 @@ position on a shared map for the duration of the trip.
   Each member also sees their own live distance/ETA to the destination, and
   their own remaining path drawn as a second, dashed, member-colored line
   alongside the shared plan — so the route reflects where *they* actually
-  are, not just where the owner was when they set it.
+  are, not just where the owner was when they set it. Opening a group with a
+  route set centers the map on its start point first, and a step button
+  lets you walk the camera through each stop in order, then the
+  destination, then back to the start.
 - **Offline awareness** — banner when the device loses connectivity.
 
 ## Tech stack
@@ -141,8 +144,13 @@ see [CLEANUP.md](CLEANUP.md).
       across screen visits) - the button remains, now a small circular FAB
       instead of a full-width bar, both to make manual pause/resume quicker
       and because the old bar overlapped Google Maps' zoom controls.
-
-**Needed before this is usable end-to-end:**
+- [x] Fixed: opening a group with a route already set (or having one just
+      created) showed the old "fit everyone plus the destination/stops"
+      camera view, which could land far from where the trip actually
+      starts. Now centers on the route's start point first instead. Added
+      a step-through button (top-right, next to roster/re-fit) that walks
+      the camera to the first stop, then each subsequent stop, then the
+      destination, then wraps back to the start.
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
       `GoogleService-Info.plist` (needs to be regenerated, ideally from a Mac
       with Xcode installed). iOS hasn't been built or run at all yet.

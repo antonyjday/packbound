@@ -21,8 +21,8 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "tripExpiresAt", "order": "ASCENDING" },
-        { "fieldPath": "expiryWarningLevel", "order": "ASCENDING" }
+        { "fieldPath": "expiryWarningLevel", "order": "ASCENDING" },
+        { "fieldPath": "tripExpiresAt", "order": "ASCENDING" }
       ]
     },
     {

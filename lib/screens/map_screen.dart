@@ -46,6 +46,14 @@ class _MapScreenState extends State<MapScreen> {
   double? _myEtaDistanceMeters;
   Duration? _myEtaDuration;
   int _myEtaRemainingStops = 0;
+
+  // The driving route from *this device's* current position to the
+  // destination (via whichever waypoints it hasn't reached yet) - decoded
+  // from the same throttled Directions call as the ETA above, so drawing it
+  // costs nothing extra. Shown alongside the shared plan's static polyline
+  // so each viewer sees their own remaining path, not just the route as it
+  // looked from the owner's position when they set it.
+  String? _myRoutePolyline;
   bool _etaCalcInFlight = false;
   DateTime? _lastEtaCalcAt;
   RouteStop? _lastEtaCalcPosition;
@@ -140,6 +148,7 @@ class _MapScreenState extends State<MapScreen> {
           _myEtaDistanceMeters = null;
           _myEtaDuration = null;
           _myEtaRemainingStops = 0;
+          _myRoutePolyline = null;
           _lastEtaCalcAt = null;
           _lastEtaCalcPosition = null;
         });
@@ -166,6 +175,16 @@ class _MapScreenState extends State<MapScreen> {
     });
 
     _checkOwnership();
+
+    // Sharing defaults to on: most people opening a group's map are here to
+    // be tracked, and re-tapping "start sharing" every time you reopen the
+    // screen (sharing state isn't persisted - see stopSharing() in dispose())
+    // is just friction. Goes through the exact same _toggleSharing path as
+    // the manual button, so the permission explainer/prompts and error
+    // handling for a first-time or denied user are unchanged.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_sharing) _toggleSharing();
+    });
   }
 
   Duration? get _timeUntilExpiry {
@@ -393,6 +412,7 @@ class _MapScreenState extends State<MapScreen> {
         _myEtaDistanceMeters = result.distanceMeters.toDouble();
         _myEtaDuration = Duration(seconds: result.durationSeconds);
         _myEtaRemainingStops = remainingWaypoints.length;
+        _myRoutePolyline = result.polyline;
       });
     }).catchError((_) {
       // A live ETA is a nice-to-have - don't interrupt the user with an
@@ -702,6 +722,7 @@ class _MapScreenState extends State<MapScreen> {
             ..._buildMarkers(points),
             if (route != null) ..._buildRouteMarkers(route),
           };
+          final myRoutePolyline = _myRoutePolyline;
           final polylines = route == null
               ? const <Polyline>{}
               : {
@@ -711,6 +732,21 @@ class _MapScreenState extends State<MapScreen> {
                     color: Colors.blueAccent,
                     width: 5,
                   ),
+                  // This viewer's own remaining path to the destination, in
+                  // their marker's color - overlaid on the shared plan above
+                  // since that one is fixed to how the route looked from the
+                  // owner's position when they set it, not where everyone
+                  // else actually is now.
+                  if (myRoutePolyline != null)
+                    Polyline(
+                      polylineId: const PolylineId('my_route'),
+                      points: decodePolyline(myRoutePolyline),
+                      color: colorForMarkerHue(
+                        markerHueForUser(_authService.uid!),
+                      ),
+                      width: 5,
+                      patterns: [PatternItem.dash(20), PatternItem.gap(10)],
+                    ),
                 };
           final lostCount =
               points.where((p) => p.status == SignalStatus.lost).length;
@@ -823,18 +859,17 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
 
+              // Bottom-left, not bottom-right, so it doesn't sit under the
+              // Google Maps zoom controls the SDK draws in that corner.
               Positioned(
                 bottom: 24,
                 left: 24,
-                right: 24,
-                child: FilledButton.icon(
+                child: FloatingActionButton(
+                  heroTag: 'toggleSharing',
                   onPressed: _toggleSharing,
-                  icon: Icon(_sharing ? Icons.location_off : Icons.location_on),
-                  label: Text(_sharing ? 'Stop sharing my location' : 'Start sharing my location'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _sharing ? Colors.red : Colors.deepOrange,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
+                  backgroundColor: _sharing ? Colors.red : Colors.deepOrange,
+                  tooltip: _sharing ? 'Stop sharing my location' : 'Start sharing my location',
+                  child: Icon(_sharing ? Icons.location_off : Icons.location_on),
                 ),
               ),
             ],

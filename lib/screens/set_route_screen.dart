@@ -8,13 +8,16 @@ import '../services/group_service.dart';
 import '../services/location_service.dart';
 import 'location_permission_screen.dart';
 
-enum _TapMode { destination, stop }
+enum _TapMode { origin, destination, stop }
 
 /// Owner-only screen for planning (or amending) the group's shared trip:
 /// tap the map to place the destination, tap again in "Add stop" mode to
-/// append ordered waypoints, drag to reorder them, then save. Saving looks
-/// up the owner's current position as the route's origin and resolves the
-/// whole thing into an actual driving route via [DirectionsService].
+/// append ordered waypoints, drag to reorder them, then save. The starting
+/// point defaults to the owner's current position at save time, but can be
+/// overridden by tapping the map in "Start" mode - useful for planning a
+/// trip ahead of time from somewhere other than where the owner happens to
+/// be right now. Saving resolves the whole thing into an actual driving
+/// route via [DirectionsService].
 class SetRouteScreen extends StatefulWidget {
   final ConvoyGroup group;
   final RoutePlan? initialRoute;
@@ -37,6 +40,7 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
   static const _worldFallbackCamera = CameraPosition(target: LatLng(0, 0), zoom: 2);
 
   _TapMode _mode = _TapMode.destination;
+  RouteStop? _startingPoint;
   RouteStop? _destination;
   List<RouteStop> _waypoints = [];
   bool _saving = false;
@@ -47,6 +51,11 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
     super.initState();
     final initial = widget.initialRoute;
     if (initial != null) {
+      // Preserve the previously used starting point when editing, rather
+      // than silently reverting to "defaults to current location" - the
+      // owner may be amending the route from somewhere other than where
+      // they originally set it.
+      _startingPoint = initial.origin;
       _destination = initial.destination;
       _waypoints = List.of(initial.waypoints);
       _initialCameraFuture = Future.value(CameraPosition(
@@ -84,13 +93,18 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
 
   void _onMapTap(LatLng point) {
     setState(() {
-      if (_mode == _TapMode.destination) {
-        _destination = RouteStop(lat: point.latitude, lng: point.longitude);
-      } else {
-        _waypoints = [..._waypoints, RouteStop(lat: point.latitude, lng: point.longitude)];
+      switch (_mode) {
+        case _TapMode.origin:
+          _startingPoint = RouteStop(lat: point.latitude, lng: point.longitude);
+        case _TapMode.destination:
+          _destination = RouteStop(lat: point.latitude, lng: point.longitude);
+        case _TapMode.stop:
+          _waypoints = [..._waypoints, RouteStop(lat: point.latitude, lng: point.longitude)];
       }
     });
   }
+
+  void _clearStartingPoint() => setState(() => _startingPoint = null);
 
   void _removeWaypoint(int index) {
     setState(() => _waypoints = [..._waypoints]..removeAt(index));
@@ -110,27 +124,35 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
     if (_destination == null || _saving) return;
     setState(() => _saving = true);
     try {
-      final status = await _locationService.checkPermissionStatus();
-      final alreadyGranted = status == LocationPermission.always ||
-          status == LocationPermission.whileInUse;
+      RouteStop origin;
+      final manualStart = _startingPoint;
+      if (manualStart != null) {
+        // A manually-picked starting point needs no location permission at
+        // all - it's just a map coordinate, same as the destination/stops.
+        origin = manualStart;
+      } else {
+        final status = await _locationService.checkPermissionStatus();
+        final alreadyGranted = status == LocationPermission.always ||
+            status == LocationPermission.whileInUse;
 
-      if (!mounted) return;
-      if (!alreadyGranted) {
-        final granted = await Navigator.push<bool>(
-          context,
-          MaterialPageRoute(
-            builder: (_) => LocationPermissionScreen(groupName: widget.group.name),
-            fullscreenDialog: true,
-          ),
-        );
-        if (granted != true) {
-          setState(() => _saving = false);
-          return;
+        if (!mounted) return;
+        if (!alreadyGranted) {
+          final granted = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => LocationPermissionScreen(groupName: widget.group.name),
+              fullscreenDialog: true,
+            ),
+          );
+          if (granted != true) {
+            setState(() => _saving = false);
+            return;
+          }
         }
-      }
 
-      final position = await _locationService.getCurrentPosition();
-      final origin = RouteStop(lat: position.latitude, lng: position.longitude);
+        final position = await _locationService.getCurrentPosition();
+        origin = RouteStop(lat: position.latitude, lng: position.longitude);
+      }
 
       final route = await _directionsService.route(
         origin: origin,
@@ -151,6 +173,14 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
 
   Set<Marker> _buildMarkers() {
     final markers = <Marker>{};
+    if (_startingPoint != null) {
+      markers.add(Marker(
+        markerId: const MarkerId('starting_point'),
+        position: LatLng(_startingPoint!.lat, _startingPoint!.lng),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        infoWindow: const InfoWindow(title: 'Starting point'),
+      ));
+    }
     if (_destination != null) {
       markers.add(Marker(
         markerId: const MarkerId('destination'),
@@ -213,6 +243,12 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
                       child: Row(
                         children: [
                           ChoiceChip(
+                            label: const Text('Start'),
+                            selected: _mode == _TapMode.origin,
+                            onSelected: (_) => setState(() => _mode = _TapMode.origin),
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
                             label: const Text('Destination'),
                             selected: _mode == _TapMode.destination,
                             onSelected: (_) => setState(() => _mode = _TapMode.destination),
@@ -237,6 +273,20 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      ListTile(
+                        leading: const Icon(Icons.trip_origin, color: Colors.green),
+                        title: Text(_startingPoint == null
+                            ? 'Starting point defaults to your location when saved'
+                            : 'Starting point set — tap the map to move it'),
+                        trailing: _startingPoint == null
+                            ? null
+                            : IconButton(
+                                icon: const Icon(Icons.close),
+                                tooltip: 'Reset to current location',
+                                onPressed: _clearStartingPoint,
+                              ),
+                        dense: true,
+                      ),
                       ListTile(
                         leading: const Icon(Icons.flag, color: Colors.deepPurple),
                         title: Text(_destination == null

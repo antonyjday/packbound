@@ -14,11 +14,13 @@ class RouteStop {
   Map<String, dynamic> toMap() => {'lat': lat, 'lng': lng};
 }
 
-/// A group's shared planned trip: where the owner was when they set it
-/// (`origin`), the ordered stops along the way (`waypoints`), and the final
-/// `destination` - resolved into an actual driving route (`polyline`) via the
-/// Directions API once, on the owner's device, at save time. Every member
-/// just decodes and renders the same stored polyline.
+/// A group's shared planned trip: the trip's starting point (`origin` -
+/// wherever the owner was when they set it, unless they picked a different
+/// starting point on the map), the ordered stops along the way
+/// (`waypoints`), and the final `destination` - resolved into an actual
+/// driving route (`polyline`) via the Directions API once, on the owner's
+/// device, at save time. Every member just decodes and renders the same
+/// stored polyline.
 class RoutePlan {
   final RouteStop origin;
   final RouteStop destination;

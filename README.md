@@ -12,14 +12,20 @@ position on a shared map for the duration of the trip.
   signal status (live / weak / lost based on how stale their last update is).
 - **Background location sharing** — keeps reporting position while the app is
   minimized (Android foreground service / iOS background location mode).
+  Starts automatically as soon as you open a group's map (still shown as a
+  small toggle button if you want to pause it).
 - **Trip lifecycle** — groups get a 24h hard-cap expiry (extendable by the
   owner), auto-end after 10h of inactivity, and get an in-app 4h/1h warning
   banner as the deadline approaches. Ended groups have their live location
   data wiped immediately; group metadata is purged after 30 days.
-- **Shared trip route** — the owner taps a destination and any planned stops
-  right on the map; it's resolved into a real driving route (via the
-  Directions API) and shown live to every member, along with the full-trip
-  distance/ETA and each member's own live distance/ETA to the destination.
+- **Shared trip route** — the owner taps a starting point (optional — defaults
+  to their current location), a destination, and any planned stops right on
+  the map; it's resolved into a real driving route (via the Directions API)
+  and shown live to every member, along with the full-trip distance/ETA.
+  Each member also sees their own live distance/ETA to the destination, and
+  their own remaining path drawn as a second, dashed, member-colored line
+  alongside the shared plan — so the route reflects where *they* actually
+  are, not just where the owner was when they set it.
 - **Offline awareness** — banner when the device loses connectivity.
 
 ## Tech stack
@@ -117,6 +123,24 @@ see [CLEANUP.md](CLEANUP.md).
       itself (needs the emulator + `@firebase/rules-unit-testing`, a
       separate Node test suite - the only thing that would've caught the
       group-creation batch/rules bug from earlier) are follow-ups below.
+- [x] Fixed: the shared route was drawn identically for every member, from
+      wherever the owner was when they set it - a member miles away from
+      that path had no way to see their own way to the destination. Each
+      viewer's map now also draws their own remaining route (dashed, in
+      their marker color), reusing the polyline from the same throttled
+      per-member Directions call that already powered the "my ETA" chip -
+      no extra API calls. Applies equally to the owner's own device, not
+      just other members.
+- [x] Set/edit route screen: the starting point can now be picked on the
+      map (a "Start" mode alongside Destination/Add stop), defaulting to the
+      owner's current location at save time if left unset - useful for
+      planning a trip ahead of time from somewhere other than wherever the
+      owner currently is.
+- [x] Location sharing now starts automatically on opening a group's map,
+      instead of requiring a manual tap every time (it was never persisted
+      across screen visits) - the button remains, now a small circular FAB
+      instead of a full-width bar, both to make manual pause/resume quicker
+      and because the old bar overlapped Google Maps' zoom controls.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getMessaging } from 'firebase-admin/messaging';
 import { onDocumentWritten, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
@@ -86,6 +87,46 @@ export const endInactiveGroups = onSchedule(INACTIVITY_SWEEP_SCHEDULE, async () 
 });
 
 /**
+ * Pushes a trip-expiry warning to every member of a group (not just the
+ * owner) - matches who already sees the in-app banner in MapScreen, where
+ * the owner gets an "Extend" action and everyone else is told to ask them.
+ * Tokens come from `users/{uid}.fcmToken`, written by the client's
+ * NotificationService whenever it has a signed-in user. Best-effort: a
+ * failed/partial send is logged, never thrown, so it can't abort the
+ * caller's sweep over the rest of the warned groups.
+ */
+async function sendExpiryWarningPush(groupId: string, groupName: string, level: number) {
+  try {
+    const membersSnap = await db.collection('groups').doc(groupId).collection('members').get();
+    if (membersSnap.empty) return;
+
+    const userRefs = membersSnap.docs.map((d) => db.collection('users').doc(d.id));
+    const userDocs = await db.getAll(...userRefs);
+    const tokens = userDocs
+      .map((doc) => doc.get('fcmToken') as string | undefined)
+      .filter((token): token is string => !!token);
+
+    if (tokens.length === 0) return;
+
+    const urgent = level === 2;
+    const title = urgent ? 'Trip ending very soon' : 'Trip ending soon';
+    const body = urgent
+      ? `"${groupName}" ends in about ${FINAL_WARNING_LEAD_HOURS}h. Extend it now if you're not done.`
+      : `"${groupName}" ends in about ${EARLY_WARNING_LEAD_HOURS}h. The owner can extend it from the app.`;
+
+    const response = await getMessaging().sendEachForMulticast({
+      tokens,
+      notification: { title, body },
+    });
+    logger.info(
+      `sendExpiryWarningPush: sent to ${response.successCount}/${tokens.length} for group ${groupId}`
+    );
+  } catch (err) {
+    logger.error(`sendExpiryWarningPush: failed for group ${groupId}`, err);
+  }
+}
+
+/**
  * Scheduled sweep: gives the owner fair warning before `tripExpiresAt`
  * hits, so a convoy that's stopped for the night (and will resume the
  * next day) doesn't get quietly force-ended while everyone's asleep.
@@ -94,11 +135,9 @@ export const endInactiveGroups = onSchedule(INACTIVITY_SWEEP_SCHEDULE, async () 
  *   1 = early warning (EARLY_WARNING_LEAD_HOURS out)
  *   2 = final warning (FINAL_WARNING_LEAD_HOURS out)
  *
- * This only sets Firestore fields - the app itself is what surfaces the
- * warning as an in-app banner via the group doc listener already in
- * MapScreen. Hooking this up to a push notification (FCM) later would
- * mean adding an FCM send here when the level changes; left as a clear
- * extension point since no messaging service is wired up yet.
+ * Sets the Firestore fields the in-app banner (MapScreen) reads, and also
+ * pushes a notification via sendExpiryWarningPush for members who aren't
+ * looking at the app right now.
  */
 export const warnExpiringGroups = onSchedule(WARNING_SWEEP_SCHEDULE, async () => {
   const now = Timestamp.now();
@@ -138,7 +177,14 @@ export const warnExpiringGroups = onSchedule(WARNING_SWEEP_SCHEDULE, async () =>
     return;
   }
 
-  await batch.commit();
+  await Promise.all([
+    batch.commit(),
+    ...needsFinalSnap.docs.map((d) => sendExpiryWarningPush(d.id, d.data().name, 2)),
+    ...needsEarlySnap.docs
+      .filter((d) => !finalIds.has(d.id))
+      .map((d) => sendExpiryWarningPush(d.id, d.data().name, 1)),
+  ]);
+
   logger.info(`warnExpiringGroups: flagged ${count} group(s) for expiry warning`);
 });
 

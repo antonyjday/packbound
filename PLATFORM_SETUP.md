@@ -46,6 +46,12 @@ a specific UX):
    only for convoy/group location sharing, and ideally the app should
    visibly indicate (e.g. a persistent banner) when sharing is active.
    `showBackgroundLocationIndicator: true` (already set) helps satisfy this.
+5. Push notifications (trip-expiry warnings, `NotificationService`) are
+   Android-only for now. To bring them to iOS once the rest of the iOS setup
+   above is done: add the **Push Notifications** and **Background Modes →
+   Remote notifications** capabilities in Xcode, then generate an APNs auth
+   key (or certificate) in the Apple Developer portal and upload it under
+   Project Settings → Cloud Messaging in the Firebase console.
 
 ## Testing background behavior
 

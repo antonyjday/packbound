@@ -90,6 +90,21 @@ see [CLEANUP.md](CLEANUP.md).
       order - anything within 500m is treated as passed), and the chip shows
       how many stops remain. It's a simple recomputed-fresh heuristic, not
       persisted "visited" state, so it self-corrects if someone backtracks.
+- [x] Push notifications for trip-expiry warnings — `NotificationService`
+      registers each signed-in device's FCM token onto `users/{uid}.fcmToken`,
+      and `warnExpiringGroups` now pushes to every group member (matching who
+      already sees the in-app banner) when a trip crosses the 4h/1h warning
+      thresholds. **Android only for now** — iOS has no Firebase/APNs config
+      yet (see below).
+- [x] Fixed a pre-existing bug found while wiring up the above:
+      `warnExpiringGroups` had been failing on *every single run* since it was
+      first deployed (`FAILED_PRECONDITION: The query requires an index`) —
+      the composite index in `firestore.indexes.json` had `tripExpiresAt` and
+      `expiryWarningLevel` in the wrong order relative to what the query
+      actually needed. This silently broke the entire expiry-warning feature,
+      including the in-app banner, not just the new push - `expiryWarningLevel`
+      was never being set. Fixed and confirmed via `firebase functions:log`
+      that the sweep now runs clean.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -105,10 +120,6 @@ see [CLEANUP.md](CLEANUP.md).
 - [ ] Route search/autocomplete — setting a destination is currently
       tap-on-the-map only. Address search would need the Places API enabled
       (separate billing surface from Directions/Maps SDK) - deferred for now.
-- [ ] Push notifications for trip-expiry warnings — currently in-app only, so
-      the owner only sees them if they have the app open before the deadline
-      (`warnExpiringGroups` in `functions/src/index.ts` is written as the
-      hook point for adding FCM).
 - [ ] Custom URL scheme (`convoy://`) only works if the app is already
       installed. Upgrading to a universal/app link
       (`https://yourdomain.com/join/CODE`) would let invites degrade

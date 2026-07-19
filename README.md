@@ -78,6 +78,18 @@ see [CLEANUP.md](CLEANUP.md).
       identical). Signal status is now shown via marker opacity instead.
       The roster's avatar uses the same color as its member's marker, acting
       as a legend without extra UI on the map itself.
+- [x] Fixed: Set route screen opened on a zoomed-out world view, since it
+      relied on `getLastKnownPosition()`, which is frequently unpopulated.
+      Now actively fetches a fresh position up front (briefly showing a
+      loading spinner) and opens already centered ~9 zoom (roughly a 50mi
+      radius) on the owner's current location; still falls back to the world
+      view only if location permission truly isn't available.
+- [x] Fixed: live "my ETA" always routed straight to the final destination,
+      ignoring waypoints entirely. Now routes through whichever waypoints
+      haven't been reached yet (a proximity check against each waypoint in
+      order - anything within 500m is treated as passed), and the chip shows
+      how many stops remain. It's a simple recomputed-fresh heuristic, not
+      persisted "visited" state, so it self-corrects if someone backtracks.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -90,18 +102,9 @@ see [CLEANUP.md](CLEANUP.md).
       before shipping a release build.
 
 **Known gaps / follow-ups called out in the code:**
-- [ ] Set route screen starts at a zoomed-out world view (see
-      `SetRouteScreen._centerOnLastKnownPosition` — `getLastKnownPosition()`
-      often isn't populated yet, so it silently falls back to world view).
-      Instead, default to a ~50 mile radius around the owner's current
-      location and let them zoom out from there if they really need to,
-      rather than making them navigate from the whole world in.
 - [ ] Route search/autocomplete — setting a destination is currently
       tap-on-the-map only. Address search would need the Places API enabled
       (separate billing surface from Directions/Maps SDK) - deferred for now.
-- [ ] Live "my ETA" always routes straight to the final destination, not the
-      next unvisited waypoint - there's no tracking of which stops a member
-      has already passed.
 - [ ] Push notifications for trip-expiry warnings — currently in-app only, so
       the owner only sees them if they have the app open before the deadline
       (`warnExpiringGroups` in `functions/src/index.ts` is written as the

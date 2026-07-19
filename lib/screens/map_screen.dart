@@ -45,9 +45,15 @@ class _MapScreenState extends State<MapScreen> {
   // (throttled) as this device moves. See _maybeRecalculateMyEta.
   double? _myEtaDistanceMeters;
   Duration? _myEtaDuration;
+  int _myEtaRemainingStops = 0;
   bool _etaCalcInFlight = false;
   DateTime? _lastEtaCalcAt;
   RouteStop? _lastEtaCalcPosition;
+
+  // How close to a waypoint counts as "arrived" for the purposes of the
+  // live ETA - waypoints within this radius are treated as already passed
+  // and routed past, rather than back through, on the next recalculation.
+  static const _waypointArrivalRadiusMeters = 500.0;
 
   // Forces a rebuild every few seconds so each marker's "seconds since
   // update" (and therefore its live/weak/lost status) stays current even
@@ -133,6 +139,7 @@ class _MapScreenState extends State<MapScreen> {
           _route = newRoute;
           _myEtaDistanceMeters = null;
           _myEtaDuration = null;
+          _myEtaRemainingStops = 0;
           _lastEtaCalcAt = null;
           _lastEtaCalcPosition = null;
         });
@@ -369,24 +376,49 @@ class _MapScreenState extends State<MapScreen> {
 
     _etaCalcInFlight = true;
     _lastEtaCalcAt = now;
-    _lastEtaCalcPosition = RouteStop(lat: myPoint.lat, lng: myPoint.lng);
+    final myPosition = RouteStop(lat: myPoint.lat, lng: myPoint.lng);
+    _lastEtaCalcPosition = myPosition;
+
+    final remainingWaypoints = _remainingWaypoints(myPosition, _route!.waypoints);
 
     _directionsService
         .route(
-          origin: RouteStop(lat: myPoint.lat, lng: myPoint.lng),
+          origin: myPosition,
           destination: _route!.destination,
-          waypoints: const [],
+          waypoints: remainingWaypoints,
         )
         .then((result) {
       if (!mounted) return;
       setState(() {
         _myEtaDistanceMeters = result.distanceMeters.toDouble();
         _myEtaDuration = Duration(seconds: result.durationSeconds);
+        _myEtaRemainingStops = remainingWaypoints.length;
       });
     }).catchError((_) {
       // A live ETA is a nice-to-have - don't interrupt the user with an
       // error toast for a background recalculation failure.
     }).whenComplete(() => _etaCalcInFlight = false);
+  }
+
+  /// Waypoints this member hasn't reached yet, in order, starting from the
+  /// first one still further than [_waypointArrivalRadiusMeters] away.
+  /// Anything before that is treated as already passed. This is a simple
+  /// proximity heuristic recomputed fresh from wherever the member
+  /// currently is - not persisted "visited" state - so it self-corrects if
+  /// someone backtracks, and needs no extra sync with other members.
+  List<RouteStop> _remainingWaypoints(RouteStop myPosition, List<RouteStop> waypoints) {
+    for (var i = 0; i < waypoints.length; i++) {
+      final distanceToStop = Geolocator.distanceBetween(
+        myPosition.lat,
+        myPosition.lng,
+        waypoints[i].lat,
+        waypoints[i].lng,
+      );
+      if (distanceToStop > _waypointArrivalRadiusMeters) {
+        return waypoints.sublist(i);
+      }
+    }
+    return const [];
   }
 
   Set<Marker> _buildRouteMarkers(RoutePlan route) {
@@ -783,7 +815,8 @@ class _MapScreenState extends State<MapScreen> {
                           icon: Icons.navigation,
                           label: 'You: '
                               '${_formatDistanceDuration(_myEtaDistanceMeters!.round(), _myEtaDuration!.inSeconds)}'
-                              ' to destination',
+                              ' to destination'
+                              '${_myEtaRemainingStops > 0 ? ' ($_myEtaRemainingStops stop${_myEtaRemainingStops == 1 ? '' : 's'} left)' : ''}',
                         ),
                       ],
                     ],

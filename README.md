@@ -105,6 +105,18 @@ see [CLEANUP.md](CLEANUP.md).
       including the in-app banner, not just the new push - `expiryWarningLevel`
       was never being set. Fixed and confirmed via `firebase functions:log`
       that the sweep now runs clean.
+- [x] Added a first batch of automated tests (`flutter test`, 33 tests, no
+      new dependencies) covering pure Dart logic: `LocationPoint`'s
+      live/weak/lost signal-status thresholds and `lastSeenLabel` formatting,
+      `extractInviteCode`/`buildInviteLink`, `decodePolyline`, member marker
+      color assignment (determinism + no collision with the reserved route
+      marker hues), and `RouteStop`/`RoutePlan` map round-tripping.
+      Deliberately scoped to logic with no Firebase dependency for now -
+      `GroupService`/`AuthService` (need `fake_cloud_firestore` +
+      `firebase_auth_mocks` + `mocktail` mocking) and `firestore.rules`
+      itself (needs the emulator + `@firebase/rules-unit-testing`, a
+      separate Node test suite - the only thing that would've caught the
+      group-creation batch/rules bug from earlier) are follow-ups below.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -126,7 +138,9 @@ see [CLEANUP.md](CLEANUP.md).
       gracefully for people who don't have the app yet — needs a real domain
       and hosting `.well-known/apple-app-site-association` /
       `assetlinks.json`. See PLATFORM_SETUP.md for details.
-- [ ] No automated tests yet (`test/` is empty).
+- [ ] Service-layer tests (`GroupService`, `AuthService`) with mocked
+      Firestore/Auth, and a separate Firestore-rules test suite against the
+      emulator - see the "Done" note above.
 - [ ] `applicationId`/bundle ID are still the Flutter-generated
       `com.example.convoy.*` — rename before publishing to either app store.
 - [ ] No app icon / launch screen customization — using Flutter defaults.

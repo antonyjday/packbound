@@ -25,7 +25,9 @@ position on a shared map for the duration of the trip.
   Each member also sees their own live distance/ETA to the destination, and
   their own remaining path drawn as a second, dashed, member-colored line
   alongside the shared plan — so the route reflects where *they* actually
-  are, not just where the owner was when they set it. Opening a group with a
+  are, not just where the owner was when they set it. A member who hasn't
+  reached the trip's start point yet is routed there first, before the
+  rest of the stops/destination, rather than straight past it. Opening a group with a
   route set centers the map on its start point first, and a step button
   lets you walk the camera through each stop in order, then the
   destination, then back to the start.
@@ -151,6 +153,14 @@ see [CLEANUP.md](CLEANUP.md).
       a step-through button (top-right, next to roster/re-fit) that walks
       the camera to the first stop, then each subsequent stop, then the
       destination, then wraps back to the start.
+- [x] Fixed: a member's live route/ETA routed straight from their current
+      position to the next stop or the destination, skipping the trip's
+      start point entirely even if they hadn't reached it yet. The start
+      point is now treated as this member's first leg, same proximity-based
+      "already passed" logic as any other stop - so someone who hasn't
+      convened at the start yet is routed there first, not past it.
+
+**Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
       `GoogleService-Info.plist` (needs to be regenerated, ideally from a Mac
       with Xcode installed). iOS hasn't been built or run at all yet.

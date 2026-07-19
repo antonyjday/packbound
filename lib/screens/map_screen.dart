@@ -415,20 +415,25 @@ class _MapScreenState extends State<MapScreen> {
     final myPosition = RouteStop(lat: myPoint.lat, lng: myPoint.lng);
     _lastEtaCalcPosition = myPosition;
 
-    final remainingWaypoints = _remainingWaypoints(myPosition, _route!.waypoints);
+    // The trip's start point counts as this member's first leg too, same as
+    // any other waypoint - a member who hasn't reached it yet should be
+    // routed there before the rest of the planned stops/destination, not
+    // straight past it to whatever's next on the plan.
+    final remainingLegs =
+        _remainingLegs(myPosition, [_route!.origin, ..._route!.waypoints]);
 
     _directionsService
         .route(
           origin: myPosition,
           destination: _route!.destination,
-          waypoints: remainingWaypoints,
+          waypoints: remainingLegs,
         )
         .then((result) {
       if (!mounted) return;
       setState(() {
         _myEtaDistanceMeters = result.distanceMeters.toDouble();
         _myEtaDuration = Duration(seconds: result.durationSeconds);
-        _myEtaRemainingStops = remainingWaypoints.length;
+        _myEtaRemainingStops = remainingLegs.length;
         _myRoutePolyline = result.polyline;
       });
     }).catchError((_) {
@@ -437,22 +442,23 @@ class _MapScreenState extends State<MapScreen> {
     }).whenComplete(() => _etaCalcInFlight = false);
   }
 
-  /// Waypoints this member hasn't reached yet, in order, starting from the
-  /// first one still further than [_waypointArrivalRadiusMeters] away.
-  /// Anything before that is treated as already passed. This is a simple
-  /// proximity heuristic recomputed fresh from wherever the member
-  /// currently is - not persisted "visited" state - so it self-corrects if
-  /// someone backtracks, and needs no extra sync with other members.
-  List<RouteStop> _remainingWaypoints(RouteStop myPosition, List<RouteStop> waypoints) {
-    for (var i = 0; i < waypoints.length; i++) {
+  /// Legs (the start point, then waypoints) this member hasn't reached yet,
+  /// in order, starting from the first one still further than
+  /// [_waypointArrivalRadiusMeters] away. Anything before that is treated as
+  /// already passed. This is a simple proximity heuristic recomputed fresh
+  /// from wherever the member currently is - not persisted "visited" state -
+  /// so it self-corrects if someone backtracks, and needs no extra sync with
+  /// other members.
+  List<RouteStop> _remainingLegs(RouteStop myPosition, List<RouteStop> legs) {
+    for (var i = 0; i < legs.length; i++) {
       final distanceToStop = Geolocator.distanceBetween(
         myPosition.lat,
         myPosition.lng,
-        waypoints[i].lat,
-        waypoints[i].lng,
+        legs[i].lat,
+        legs[i].lng,
       );
       if (distanceToStop > _waypointArrivalRadiusMeters) {
-        return waypoints.sublist(i);
+        return legs.sublist(i);
       }
     }
     return const [];

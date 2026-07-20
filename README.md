@@ -348,6 +348,18 @@ see [CLEANUP.md](CLEANUP.md).
       before shipping a release build.
 
 **Known gaps / follow-ups called out in the code:**
+- [ ] Invite codes aren't checked for collision at creation -
+      `GroupService._generateInviteCode` picks 6 random chars (~1.29B
+      combinations) but `createGroup` never queries Firestore for an
+      existing match before writing. If two simultaneously *active* groups
+      ever did collide, `joinGroupByInviteCode`'s `where('inviteCode', ...)
+      .limit(1)` query could route a joiner to the wrong group.
+      Astronomically unlikely at current scale, but worth a
+      check-and-retry loop before this sees real traffic - unlike group/user
+      display names (confirmed not an issue: every lookup and comparison in
+      the app uses Firebase UIDs or Firestore doc IDs, never a name), an
+      invite code collision would actually bite since it's used as a
+      lookup key.
 - [ ] Route search/autocomplete — setting a destination is currently
       tap-on-the-map only. Address search would need the Places API enabled
       (separate billing surface from Directions/Maps SDK) - deferred for now.

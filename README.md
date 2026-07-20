@@ -348,6 +348,16 @@ see [CLEANUP.md](CLEANUP.md).
       before shipping a release build.
 
 **Known gaps / follow-ups called out in the code:**
+- [ ] Verify `GroupService.extendTrip` actually refreshes `tripExpiresAt` to
+      24h from the button press rather than compounding onto whatever time
+      was already left (the code and its doc comment claim the former -
+      measured from `DateTime.now()`, not the old deadline - but this
+      hasn't been exercised end-to-end). Separately, the owner-only
+      "Extend trip 24h" menu item in the app bar (`map_screen.dart`) is
+      available any time the trip hasn't ended, with no regard for how much
+      time is actually left - it should only be offered once under 12h
+      remain, rather than letting an owner "extend" a trip that already has
+      e.g. 20h left.
 - [ ] Invite codes aren't checked for collision at creation -
       `GroupService._generateInviteCode` picks 6 random chars (~1.29B
       combinations) but `createGroup` never queries Firestore for an

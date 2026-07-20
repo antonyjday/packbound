@@ -47,8 +47,12 @@ service cloud.firestore {
             (request.resource.data.role == 'owner' &&
               get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid)
           );
-        // Only the owner can remove members or change roles
-        allow update, delete: if isOwner(groupId);
+        // Only the owner can change roles or remove *other* members.
+        allow update: if isOwner(groupId);
+        // The owner can remove anyone; any member can remove themselves
+        // (leaving the trip) - see GroupService.leaveGroup.
+        allow delete: if isOwner(groupId) ||
+          (isSignedIn() && request.auth.uid == memberId);
       }
 
       match /locations/{userId} {

@@ -155,11 +155,11 @@ class GroupService {
       }
     }
 
-    await membersRef.doc(userId).delete();
+    // Deleted *before* the membership doc - the locations write rule
+    // requires isMember(groupId), which stops being true the moment the
+    // membership doc below is gone, so this would otherwise fail
+    // permission-denied.
     try {
-      // Best-effort - self-delete is always permitted by firestore.rules,
-      // so this should never actually fail, but matches removeMember's
-      // defensive style in case that assumption ever changes.
       await _db
           .collection('groups')
           .doc(groupId)
@@ -167,6 +167,8 @@ class GroupService {
           .doc(userId)
           .delete();
     } catch (_) {}
+
+    await membersRef.doc(userId).delete();
   }
 
   /// Owner-only: removes another member from the group entirely - not just

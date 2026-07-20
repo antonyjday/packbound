@@ -227,6 +227,17 @@ see [CLEANUP.md](CLEANUP.md).
       as self-initiated before deleting the membership doc, so the
       removed-member listener above doesn't also show its "you were
       removed" dialog for this voluntary leave.
+- [x] Fixed: a non-owner member leaving got a Firestore permission-denied
+      error - `firestore.rules` only ever let the *owner* delete a
+      `members` doc, never a member deleting their own (owner-initiated
+      removal and owner-leaving both happened to work already, since the
+      caller was still recognized as owner at the time of that delete).
+      Split the `update, delete` rule so delete also allows
+      `request.auth.uid == memberId`. Also reordered `leaveGroup` to
+      delete the location doc *before* the membership doc, since the
+      locations write rule requires still being a member at that moment -
+      deleting membership first would've made that best-effort cleanup
+      silently fail too. Deployed to the live project.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

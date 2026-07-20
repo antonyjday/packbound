@@ -13,6 +13,15 @@ class ConvoyGroup {
   final RoutePlan? route; // owner-set shared trip plan; null if none set yet
   final bool membersCanInvite; // owner-controlled; false hides the share/invite button for non-owners
 
+  // The *current* owner's uid - distinct from createdBy (which never
+  // changes). Kept in sync with the members subcollection's role field
+  // (see GroupService.leaveGroup) purely so firestore.rules can cheaply
+  // tell "this group currently has no owner" (everyone left, including
+  // the owner) without being able to query the members subcollection for
+  // emptiness directly - null means ownerless, and GroupService.
+  // joinGroupByInviteCode has the next person to rejoin inherit it.
+  final String? ownerId;
+
   ConvoyGroup({
     required this.id,
     required this.name,
@@ -24,6 +33,7 @@ class ConvoyGroup {
     this.expiryWarningLevel = 0,
     this.route,
     this.membersCanInvite = true,
+    this.ownerId,
   });
 
   factory ConvoyGroup.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -42,6 +52,7 @@ class ConvoyGroup {
           ? RoutePlan.fromMap(Map<String, dynamic>.from(routeData))
           : null,
       membersCanInvite: data['membersCanInvite'] ?? true,
+      ownerId: data['ownerId'],
     );
   }
 
@@ -56,5 +67,6 @@ class ConvoyGroup {
         'tripExpiresAt': tripExpiresAt,
         'expiryWarningLevel': 0,
         'membersCanInvite': true,
+        'ownerId': ownerId,
       };
 }

@@ -32,20 +32,37 @@ service cloud.firestore {
       // (needed to validate invite codes before joining)
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
-      allow update, delete: if isOwner(groupId);
+      allow delete: if isOwner(groupId);
+      allow update: if isOwner(groupId) ||
+        // Narrow exception: anyone can claim ownership of a currently
+        // ownerless group (everyone left, including the owner - see
+        // GroupService.leaveGroup) by setting themselves as ownerId, and
+        // ONLY that field - used when rejoining an abandoned trip (see
+        // GroupService.joinGroupByInviteCode). Firestore rules can't check
+        // "is the members subcollection empty" directly, hence this
+        // denormalized field instead.
+        (isSignedIn() &&
+          resource.data.ownerId == null &&
+          request.resource.data.ownerId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerId']));
 
       match /members/{memberId} {
         // A member can read the member list only if they are already a member
         allow read: if isMember(groupId);
         // A user can add themselves as a member: either joining an existing
-        // group (role must be 'member'), or - in the same batch as group
+        // group (role must be 'member'), claiming ownership of a currently
+        // ownerless one (role 'owner', group.ownerId already null - see the
+        // group update rule above), or - in the same batch as group
         // creation - adding themselves as 'owner' when they're the creator.
         allow create: if isSignedIn() &&
           request.auth.uid == memberId &&
           (
             request.resource.data.role == 'member' ||
             (request.resource.data.role == 'owner' &&
-              get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid)
+              (
+                get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid ||
+                get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == null
+              ))
           );
         // Only the owner can change roles or remove *other* members.
         allow update: if isOwner(groupId);

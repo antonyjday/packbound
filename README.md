@@ -258,6 +258,16 @@ see [CLEANUP.md](CLEANUP.md).
       handoff snackbar above only covers the moment ownership changes,
       not an ongoing reminder of whose settings/route changes actually
       apply while looking at the map generally.
+- [x] Added ownership inheritance for abandoned trips: if everyone leaves
+      a group, including the owner, the next person to rejoin via invite
+      code now inherits ownership instead of joining as an ordinary
+      member with no owner around. Needed a denormalized `ownerId` field
+      on the group doc (kept in sync with the members subcollection's
+      role, alongside `createdBy` which never changes) since
+      `firestore.rules` can't check "is the members subcollection empty"
+      directly - `null` means ownerless. The rejoin-and-claim is wrapped
+      in a transaction so two people racing to rejoin at once can't both
+      end up claiming it. Deployed the updated rules to the live project.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

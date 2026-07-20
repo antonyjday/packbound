@@ -37,6 +37,7 @@ class GroupService {
       inviteExpiresAt: expiresAt,
       status: 'active',
       tripExpiresAt: Timestamp.fromDate(DateTime.now().add(tripLifetime)),
+      ownerId: ownerId,
     );
 
     // Deliberately two sequential writes, not a batch/transaction: the
@@ -57,6 +58,12 @@ class GroupService {
 
   /// Looks up a group by invite code, validates it hasn't expired,
   /// and adds the given user as a member.
+  ///
+  /// If the group is currently ownerless - everyone left, including the
+  /// owner (see leaveGroup) - the joiner inherits ownership instead of
+  /// joining as an ordinary member. Wrapped in a transaction so two people
+  /// racing to rejoin an abandoned group at once can't both end up
+  /// claiming it: only whichever commits first still sees `ownerId` null.
   Future<ConvoyGroup> joinGroupByInviteCode({
     required String inviteCode,
     required String userId,
@@ -72,17 +79,25 @@ class GroupService {
       throw Exception('Invalid or expired invite code');
     }
 
-    final doc = query.docs.first;
-    final group = ConvoyGroup.fromDoc(doc);
+    final groupRef = query.docs.first.reference;
+    final group = ConvoyGroup.fromDoc(query.docs.first);
 
     if (group.inviteExpiresAt.toDate().isBefore(DateTime.now())) {
       throw Exception('This invite code has expired');
     }
 
-    await doc.reference.collection('members').doc(userId).set({
-      'joinedAt': FieldValue.serverTimestamp(),
-      'role': 'member',
-      'sharingEnabled': true,
+    await _db.runTransaction((transaction) async {
+      final freshGroupDoc = await transaction.get(groupRef);
+      final becomingOwner = freshGroupDoc.data()?['ownerId'] == null;
+
+      transaction.set(groupRef.collection('members').doc(userId), {
+        'joinedAt': FieldValue.serverTimestamp(),
+        'role': becomingOwner ? 'owner' : 'member',
+        'sharingEnabled': true,
+      });
+      if (becomingOwner) {
+        transaction.update(groupRef, {'ownerId': userId});
+      }
     });
 
     return group;
@@ -134,11 +149,12 @@ class GroupService {
   /// earliest `joinedAt`) before their own membership is removed; the
   /// update rule for changing another member's role requires the caller
   /// to still be owner at the time of the write, so the promotion has to
-  /// happen first. If no other members remain, the group is simply left
-  /// without an owner - nothing else currently depends on that.
+  /// happen first. If no other members remain, the group's `ownerId` is
+  /// cleared instead - the next person to rejoin inherits ownership (see
+  /// joinGroupByInviteCode).
   Future<void> leaveGroup(String groupId, String userId) async {
-    final membersRef =
-        _db.collection('groups').doc(groupId).collection('members');
+    final groupRef = _db.collection('groups').doc(groupId);
+    final membersRef = groupRef.collection('members');
 
     final selfDoc = await membersRef.doc(userId).get();
     if (selfDoc.data()?['role'] == 'owner') {
@@ -152,6 +168,9 @@ class GroupService {
       }
       if (successor != null) {
         await membersRef.doc(successor.id).update({'role': 'owner'});
+        await groupRef.update({'ownerId': successor.id});
+      } else {
+        await groupRef.update({'ownerId': null});
       }
     }
 

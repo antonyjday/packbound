@@ -268,6 +268,15 @@ see [CLEANUP.md](CLEANUP.md).
       directly - `null` means ownerless. The rejoin-and-claim is wrapped
       in a transaction so two people racing to rejoin at once can't both
       end up claiming it. Deployed the updated rules to the live project.
+- [x] Fixed: rejoining a group (including the ownerless-rejoin case just
+      above) incorrectly showed the "removed from convoy" dialog right
+      after rejoining. A Firestore local-cache quirk: the first snapshot
+      on a *new* membership-doc listener can momentarily read a stale
+      "not found" - a tombstone left over from the old, just-deleted
+      membership doc - before the fresh "exists" snapshot for the new
+      membership arrives. The removed-member check now only reacts to a
+      doc disappearing *after* membership has already been confirmed to
+      exist at least once, not on a screen's very first snapshot.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

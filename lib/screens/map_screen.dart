@@ -369,6 +369,17 @@ class _MapScreenState extends State<MapScreen> {
       return;
     }
 
+    // A membership doc genuinely disappearing (owner removed this member,
+    // or this member left) is only meaningful once membership has already
+    // been confirmed to exist at least once. The very first snapshot
+    // right after rejoining a group this device previously left/was
+    // removed from can momentarily read a stale "not found" straight from
+    // Firestore's local cache - a tombstone left over from the old,
+    // deleted membership doc - before the fresh "exists" snapshot for the
+    // new membership arrives. Treating that as a real removal would
+    // incorrectly boot someone the moment they rejoin.
+    if (!_hasSeenMembership) return;
+
     if (_removedFromGroup || !mounted) return;
     _removedFromGroup = true;
 

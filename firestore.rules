@@ -61,6 +61,10 @@ service cloud.firestore {
           request.auth.uid == userId &&
           isMember(groupId) &&
           isActiveGroup(groupId);
+        // The owner can also delete a member's location doc directly -
+        // e.g. when removing them from the convoy, so their marker
+        // disappears immediately instead of lingering as a stale pin.
+        allow delete: if isOwner(groupId);
       }
     }
   }

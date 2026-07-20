@@ -137,6 +137,32 @@ class GroupService {
         .delete();
   }
 
+  /// Owner-only: removes another member from the group entirely - not just
+  /// their membership (so they lose read/write access, per firestore.rules'
+  /// isOwner()-gated delete on the members subcollection), but also their
+  /// live location doc, so their marker actually disappears for everyone
+  /// else right away instead of lingering as a stale "signal lost" pin
+  /// that never updates again.
+  Future<void> removeMember(String groupId, String memberId) async {
+    await _db
+        .collection('groups')
+        .doc(groupId)
+        .collection('members')
+        .doc(memberId)
+        .delete();
+    try {
+      // Best-effort: the member is already removed above regardless of
+      // whether this succeeds. Requires firestore.rules to grant the
+      // owner delete access on another member's location doc.
+      await _db
+          .collection('groups')
+          .doc(groupId)
+          .collection('locations')
+          .doc(memberId)
+          .delete();
+    } catch (_) {}
+  }
+
   Stream<QuerySnapshot<Map<String, dynamic>>> memberStream(String groupId) {
     return _db
         .collection('groups')

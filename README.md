@@ -197,6 +197,14 @@ see [CLEANUP.md](CLEANUP.md).
       previously only distinguishable by tapping each one for its info
       window. Colors are pulled from the same hues `_buildRouteMarkers`
       uses, so it can't drift out of sync with the actual marker colors.
+- [x] Added owner ability to remove a member from the convoy - a remove
+      button in the roster (owner-only, hidden on the owner's own row)
+      that, after confirming, deletes both the member's membership doc and
+      their live location doc (so their marker disappears immediately
+      rather than lingering as a stale pin). Needed a `firestore.rules`
+      change to let the owner delete another member's location doc -
+      **must be deployed** (`firebase deploy --only firestore:rules`)
+      before this works against the live project.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -209,7 +217,11 @@ see [CLEANUP.md](CLEANUP.md).
       before shipping a release build.
 
 **Known gaps / follow-ups called out in the code:**
-- [ ] Owner ability to remove a member from the convoy.
+- [ ] A member who gets removed doesn't get any graceful in-app handling on
+      their own device - their next location write just gets silently
+      permission-denied (unhandled), and they aren't navigated away from
+      the map or told they've been removed. Owner-side removal itself
+      works (see "Done" below); this is the removed member's own experience.
 - [ ] In landscape orientation, the bottom-left route info stack (marker
       legend, full-route chip, "you" chip) should lay out left-to-right
       instead of stacked top-to-bottom, since vertical space is scarcer.

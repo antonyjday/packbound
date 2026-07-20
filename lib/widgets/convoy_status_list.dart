@@ -5,13 +5,17 @@ import '../utils/member_colors.dart';
 class ConvoyStatusList extends StatelessWidget {
   final List<LocationPoint> points;
   final String currentUserId;
+  final bool isOwner;
   final void Function(LocationPoint point)? onSelect;
+  final void Function(LocationPoint point)? onRemove;
 
   const ConvoyStatusList({
     super.key,
     required this.points,
     required this.currentUserId,
+    this.isOwner = false,
     this.onSelect,
+    this.onRemove,
   });
 
   Color _statusColor(SignalStatus status) {
@@ -86,10 +90,26 @@ class ConvoyStatusList extends StatelessWidget {
           ),
           title: Text(isMe ? '${p.displayName} (you)' : p.displayName),
           subtitle: Text('${_statusLabel(p.status)} · ${p.lastSeenLabel}'),
-          trailing: p.status == SignalStatus.lost
-              ? const Icon(Icons.signal_cellular_connected_no_internet_0_bar,
-                  color: Colors.red)
-              : null,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (p.status == SignalStatus.lost)
+                const Padding(
+                  padding: EdgeInsets.only(right: 4),
+                  child: Icon(Icons.signal_cellular_connected_no_internet_0_bar,
+                      color: Colors.red),
+                ),
+              // Owner-only, and never for their own row - there's no
+              // owner-transfer flow, so an owner "removing" themselves
+              // would just orphan the group.
+              if (isOwner && !isMe && onRemove != null)
+                IconButton(
+                  icon: const Icon(Icons.person_remove, color: Colors.red),
+                  tooltip: 'Remove from convoy',
+                  onPressed: () => onRemove!(p),
+                ),
+            ],
+          ),
           onTap: onSelect == null ? null : () => onSelect!(p),
         );
       },

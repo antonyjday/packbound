@@ -781,15 +781,56 @@ class _MapScreenState extends State<MapScreen> {
         child: ConvoyStatusList(
           points: points,
           currentUserId: _authService.uid ?? '',
+          isOwner: _isOwner,
           onSelect: (p) {
             Navigator.pop(context);
             _mapController?.animateCamera(
               CameraUpdate.newLatLngZoom(LatLng(p.lat, p.lng), 15),
             );
           },
+          onRemove: (p) => _confirmRemoveMember(context, p),
         ),
       ),
     );
+  }
+
+  /// Owner-only: confirms, then removes a member from the convoy entirely
+  /// (see GroupService.removeMember) - [sheetContext] is the roster bottom
+  /// sheet's own context, used both to anchor the confirmation dialog and
+  /// to close the sheet afterward, same pattern as onSelect above.
+  Future<void> _confirmRemoveMember(BuildContext sheetContext, LocationPoint point) async {
+    final confirmed = await showDialog<bool>(
+      context: sheetContext,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove from convoy?'),
+        content: Text(
+          '${point.displayName} will be removed from the group and can no '
+          "longer share or see the group's location. They can rejoin with a "
+          'new invite if needed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await _groupService.removeMember(widget.group.id, point.userId);
+      if (sheetContext.mounted) Navigator.pop(sheetContext);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
   }
 
   @override

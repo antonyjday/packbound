@@ -277,6 +277,13 @@ see [CLEANUP.md](CLEANUP.md).
       membership arrives. The removed-member check now only reacts to a
       doc disappearing *after* membership has already been confirmed to
       exist at least once, not on a screen's very first snapshot.
+- [x] Fixed: the group-doc and membership-doc listeners in `map_screen.dart`
+      had no `onError` handler, so a permission-denied after leaving/being
+      removed (expected - this device is no longer a member, so it loses
+      read access to both) surfaced as an unhandled exception instead of
+      being silently ignored. Found while investigating repeated
+      permission-denied errors logged during aggressive join/leave testing
+      between two devices.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

@@ -215,6 +215,12 @@ class _MapScreenState extends State<MapScreen> {
           );
         }
       }
+    }, onError: (_) {
+      // Once this device is no longer a member (left, or was removed),
+      // this listener's own read permission goes with it - an expected
+      // terminal state, not something to surface as an unhandled
+      // exception. dispose() (leave/removal both navigate away) cancels
+      // the subscription shortly after anyway.
     });
 
     _membershipSub = FirebaseFirestore.instance
@@ -223,7 +229,11 @@ class _MapScreenState extends State<MapScreen> {
         .collection('members')
         .doc(_authService.uid)
         .snapshots()
-        .listen((doc) => _handleMembershipSnapshot(doc));
+        .listen((doc) => _handleMembershipSnapshot(doc), onError: (_) {
+      // Same reasoning as _groupStatusSub's onError above - this
+      // listener reads this device's own membership doc, so losing read
+      // access to it (post-leave/removal) is expected, not exceptional.
+    });
 
     // Sharing defaults to on: most people opening a group's map are here to
     // be tracked, and re-tapping "start sharing" every time you reopen the

@@ -1034,12 +1034,44 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.group.name),
+        // Shorter than the default 56, and with tightened action buttons
+        // below, to leave more vertical room for the map.
+        toolbarHeight: 40,
+        titleSpacing: 12,
+        title: Text(widget.group.name, style: const TextStyle(fontSize: 16)),
+        actionsIconTheme: const IconThemeData(size: 20),
         actions: [
+          // Persistent ambient indicator, not a one-off alert - stays up
+          // the whole time you're owner (including right after inheriting
+          // it - see the snackbar in _handleMembershipSnapshot for that
+          // one-time transition notice) so it's never unclear whose trip
+          // settings/route changes will actually apply. Lives in the app
+          // bar (rather than its own banner) to keep more vertical room
+          // for the map.
+          if (_isOwner)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.star, color: Colors.deepPurple, size: 16),
+                  SizedBox(width: 2),
+                  Text(
+                    'Owner',
+                    style: TextStyle(
+                      color: Colors.deepPurple,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // Always shown (not just for the owner) so every member has a
           // way to leave the trip - owner-only actions are added inside
           // conditionally instead of gating the whole menu.
           PopupMenuButton<String>(
+            padding: EdgeInsets.zero,
             onSelected: (value) {
               if (value == 'extend') _extendTrip();
               if (value == 'end') _confirmEndTrip();
@@ -1110,6 +1142,9 @@ class _MapScreenState extends State<MapScreen> {
           if (_isOwner || _membersCanInvite)
             IconButton(
               icon: const Icon(Icons.share),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              visualDensity: VisualDensity.compact,
               tooltip: 'Invite others',
               onPressed: () {
                 Navigator.push(
@@ -1207,28 +1242,6 @@ class _MapScreenState extends State<MapScreen> {
                         ),
                       ),
                     if (expiryBanner != null) expiryBanner,
-                    // Persistent ambient indicator, not a one-off alert like
-                    // the two above - stays up the whole time you're owner
-                    // (including right after inheriting it - see the
-                    // snackbar in _handleMembershipSnapshot for that
-                    // one-time transition notice) so it's never unclear
-                    // whose trip settings/route changes will actually apply.
-                    if (_isOwner)
-                      Container(
-                        width: double.infinity,
-                        color: Colors.deepPurple,
-                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.star, color: Colors.white, size: 16),
-                            SizedBox(width: 8),
-                            Text(
-                              "You're the owner of this trip",
-                              style: TextStyle(color: Colors.white, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -1305,24 +1318,39 @@ class _MapScreenState extends State<MapScreen> {
               // colors (otherwise only distinguishable by tapping each one),
               // the static full-trip distance/duration, plus this viewer's
               // own live progress once the first throttled recalculation
-              // completes (see _maybeRecalculateMyEta).
+              // completes (see _maybeRecalculateMyEta). Anchored to the
+              // right of the location-sharing button (56px wide, at
+              // left: 24) rather than spanning the bottom of the map, to
+              // leave more of the map itself visible. Stacked top-to-bottom
+              // in portrait, but laid out left-to-right in landscape, where
+              // vertical space is scarcer - a Wrap (rather than a plain Row)
+              // still falls back to wrapping onto a second line instead of
+              // overflowing off-screen if all three don't fit on one. In
+              // portrait, the stack sits lower (bottom: 4 instead of 24) so
+              // its bottom edge lines up with the Google Maps zoom-out
+              // button in the opposite corner, rather than with the
+              // location-sharing button - landscape keeps 24 since the zoom
+              // controls sit differently there.
               if (route != null)
                 Positioned(
-                  bottom: 90,
-                  left: 24,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+                  bottom: MediaQuery.of(context).orientation == Orientation.landscape ? 24 : 4,
+                  left: 92,
+                  right: 24,
+                  child: Wrap(
+                    direction: MediaQuery.of(context).orientation == Orientation.landscape
+                        ? Axis.horizontal
+                        : Axis.vertical,
+                    alignment: WrapAlignment.start,
+                    spacing: 2,
+                    runSpacing: 2,
                     children: [
                       _RouteMarkerLegend(hasStops: route.waypoints.isNotEmpty),
-                      const SizedBox(height: 6),
                       _RouteInfoChip(
                         icon: Icons.alt_route,
                         label: 'Full route: '
                             '${_formatDistanceDuration(route.distanceMeters, route.durationSeconds)}',
                       ),
-                      if (_myEtaDuration != null && _myEtaDistanceMeters != null) ...[
-                        const SizedBox(height: 6),
+                      if (_myEtaDuration != null && _myEtaDistanceMeters != null)
                         _RouteInfoChip(
                           icon: Icons.navigation,
                           label: 'You: '
@@ -1330,7 +1358,6 @@ class _MapScreenState extends State<MapScreen> {
                               ' to destination'
                               '${_myEtaRemainingStops > 0 ? ' ($_myEtaRemainingStops stop${_myEtaRemainingStops == 1 ? '' : 's'} left)' : ''}',
                         ),
-                      ],
                     ],
                   ),
                 ),

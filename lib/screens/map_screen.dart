@@ -169,12 +169,16 @@ class _MapScreenState extends State<MapScreen> {
           _routeStepIndex = -1;
           _manualRouteSkipCount = 0;
         });
-        // A newly-set (or newly-loaded) route should put the camera on its
-        // start point first, not wherever the "fit everyone + the route"
-        // view would land (see _maybeAutoFit, which defers to this when a
-        // route is present) - the owner may be planning a trip that starts
-        // somewhere other than where members currently are.
-        if (newRoute != null) {
+        // A route created/changed *after* this device already got its
+        // initial view (_hasAutoFitted) puts the camera on its start point
+        // specifically - a deliberate "here's where the new plan starts"
+        // cue, since the owner may be planning a trip that starts somewhere
+        // other than where members currently are. But on first ever join,
+        // _maybeAutoFit's fit-everything view (start point, waypoints,
+        // destination, and this device's own location all at once) is what
+        // should be shown instead - overriding it here would fight with
+        // that, or short-circuit it entirely if the route arrives first.
+        if (newRoute != null && _hasAutoFitted) {
           WidgetsBinding.instance
               .addPostFrameCallback((_) => _focusOnRouteStart(newRoute));
         }
@@ -650,8 +654,9 @@ class _MapScreenState extends State<MapScreen> {
   /// whose signal is `lost` are excluded so a phone that's been off for
   /// hours doesn't drag the zoom/pan out to include a stale pin - they still
   /// get a marker, just not counted for framing) plus, when a route is set,
-  /// its destination and waypoints - so the manual refit and the initial
-  /// auto-fit both reveal the whole planned trip, not just where people are.
+  /// its start point, destination, and waypoints - so the manual refit and
+  /// the initial auto-fit both reveal the whole planned trip relative to
+  /// this device's own position, not just one or the other.
   void _fitCameraToPoints(List<LocationPoint> points) {
     if (_mapController == null) return;
 
@@ -659,10 +664,10 @@ class _MapScreenState extends State<MapScreen> {
     final route = _route;
     final routeLats = route == null
         ? const <double>[]
-        : [route.destination.lat, ...route.waypoints.map((w) => w.lat)];
+        : [route.origin.lat, route.destination.lat, ...route.waypoints.map((w) => w.lat)];
     final routeLngs = route == null
         ? const <double>[]
-        : [route.destination.lng, ...route.waypoints.map((w) => w.lng)];
+        : [route.origin.lng, route.destination.lng, ...route.waypoints.map((w) => w.lng)];
 
     final lats = [...active.map((p) => p.lat), ...routeLats];
     final lngs = [...active.map((p) => p.lng), ...routeLngs];
@@ -687,22 +692,21 @@ class _MapScreenState extends State<MapScreen> {
 
   void _maybeAutoFit(List<LocationPoint> points) {
     if (_hasAutoFitted || _mapController == null) return;
-    // When a route is set, the group-doc listener's _focusOnRouteStart
-    // handles the initial camera position instead (the route's start
-    // point, not a fit-everyone-plus-the-route view) - deliberately not
-    // marking _hasAutoFitted here so this can still fire later if the
-    // route is cleared.
-    if (_route != null) return;
     final hasActive = points.any((p) => p.status != SignalStatus.lost);
-    if (!hasActive) return;
+    // A route alone (before this device's own location has arrived) is
+    // still worth an initial fit, so someone joining a group that already
+    // has a route set sees the whole planned trip immediately rather than
+    // waiting on their own first location update.
+    if (!hasActive && _route == null) return;
     _hasAutoFitted = true;
     // Let the map finish its first frame before animating the camera.
     WidgetsBinding.instance.addPostFrameCallback((_) => _fitCameraToPoints(points));
   }
 
-  /// Centers the camera on the route's start point - see the group-doc
-  /// listener (route just changed) and onMapCreated (route already existed
-  /// when the map finished initializing).
+  /// Centers the camera on the route's start point - used by the group-doc
+  /// listener when a route is created/changed after this device's initial
+  /// join view has already happened (see _hasAutoFitted there). Not used
+  /// for the initial view itself; that's _fitCameraToPoints instead.
   void _focusOnRouteStart(RoutePlan route) {
     _mapController?.animateCamera(
       CameraUpdate.newLatLngZoom(LatLng(route.origin.lat, route.origin.lng), 15),
@@ -912,12 +916,8 @@ class _MapScreenState extends State<MapScreen> {
                 onMapCreated: (c) {
                   _mapController = c;
                   // Map may finish initializing after points/route already
-                  // arrived (e.g. slow device) - apply immediately in that case.
-                  if (route != null) {
-                    _focusOnRouteStart(route);
-                  } else {
-                    _maybeAutoFit(points);
-                  }
+                  // arrived (e.g. slow device) - fit immediately in that case.
+                  _maybeAutoFit(points);
                 },
                 myLocationEnabled: true,
               ),

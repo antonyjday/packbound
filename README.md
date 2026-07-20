@@ -32,9 +32,12 @@ position on a shared map for the duration of the trip.
   the start point, then each stop in turn, straight to the destination
   ("I'm not going to the meetup point, just route me onward"), and once
   fully skipped, pressing it again restores the full planned route.
-  Opening a group with a route set centers the map on its start point
-  first, and a separate step button lets you walk the camera (not your
-  actual route) through each stop in order, then the destination, then
+  Joining a group with a route already set fits the camera to the whole
+  planned trip (start point, waypoints, destination) alongside this
+  device's own location; a route created/changed after that instead
+  focuses the camera on just its new start point. A separate step button
+  lets you walk the camera (not your actual route) through each stop in
+  order, then the destination, then
   your own current location, then back to the start.
 - **Offline awareness** — banner when the device loses connectivity.
 
@@ -173,6 +176,15 @@ see [CLEANUP.md](CLEANUP.md).
       full planned route. Unlike the step-through button, this changes the
       actual route/ETA and dashed line, not just the camera, and recalculates
       immediately rather than waiting for the next throttled tick.
+- [x] Fixed: joining a group with a route already set jumped straight to a
+      tight zoom on just the start point, without showing the waypoints,
+      destination, or this device's own location - the start-point focus is
+      now reserved for a route being created/changed *after* the initial
+      join view, which instead fits the camera to the whole planned trip
+      (start point, waypoints, destination) and this device's own location
+      together, same as joining a group with no route set yet does for
+      just the members. Also fixed the route bounds themselves to include
+      the start point, which they'd never done even before this change.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -185,6 +197,7 @@ see [CLEANUP.md](CLEANUP.md).
       before shipping a release build.
 
 **Known gaps / follow-ups called out in the code:**
+- [ ] Owner ability to remove a member from the convoy.
 - [ ] Route search/autocomplete — setting a destination is currently
       tap-on-the-map only. Address search would need the Places API enabled
       (separate billing surface from Directions/Maps SDK) - deferred for now.

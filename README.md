@@ -140,6 +140,23 @@ see [CLEANUP.md](CLEANUP.md).
       itself (needs the emulator + `@firebase/rules-unit-testing`, a
       separate Node test suite - the only thing that would've caught the
       group-creation batch/rules bug from earlier) are follow-ups below.
+- [x] Updated tests for the route/lifecycle features added in the other
+      session (46 tests total now). Along the way, extracted `MapScreen`'s
+      private `_remainingLegs` into a standalone, testable
+      `remainingLegs()` in the new `lib/utils/route_progress.dart` (same
+      logic, just explicit parameters instead of implicit `this.` reads) -
+      and writing real test cases for it surfaced a genuine bug: it walked
+      legs (start point, then waypoints) in order and stopped at the
+      *first* one further than the 500m arrival radius, so once a member
+      had driven past the start point (almost immediately - it's the very
+      first leg), every later recalculation found the start point still
+      "far" and broke immediately, never even checking whether the member
+      had also reached waypoint 1, waypoint 2, etc. In practice this meant
+      a member's live route/ETA got stuck always routing back through
+      already-passed legs instead of dropping them. Fixed by checking every
+      leg and taking the *last* (highest-index) one within radius, rather
+      than stopping at the first one outside it - `ConvoyGroup`'s new
+      `ownerId` field also got a small round of coverage while in here.
 - [x] Fixed: the shared route was drawn identically for every member, from
       wherever the owner was when they set it - a member miles away from
       that path had no way to see their own way to the destination. Each

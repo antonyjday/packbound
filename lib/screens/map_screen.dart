@@ -14,6 +14,7 @@ import '../services/group_service.dart';
 import '../services/location_service.dart';
 import '../utils/member_colors.dart';
 import '../utils/polyline_codec.dart';
+import '../utils/route_progress.dart';
 import 'location_permission_screen.dart';
 import 'invite_screen.dart';
 import 'set_route_screen.dart';
@@ -72,11 +73,6 @@ class _MapScreenState extends State<MapScreen> {
   // regardless of actual proximity - see _remainingLegs/_toggleSkipRouteLeg.
   // Reset to 0 whenever the route itself changes.
   int _manualRouteSkipCount = 0;
-
-  // How close to a waypoint counts as "arrived" for the purposes of the
-  // live ETA - waypoints within this radius are treated as already passed
-  // and routed past, rather than back through, on the next recalculation.
-  static const _waypointArrivalRadiusMeters = 500.0;
 
   // Forces a rebuild every few seconds so each marker's "seconds since
   // update" (and therefore its live/weak/lost status) stays current even
@@ -670,61 +666,31 @@ class _MapScreenState extends State<MapScreen> {
     // any other waypoint - a member who hasn't reached it yet should be
     // routed there before the rest of the planned stops/destination, not
     // straight past it to whatever's next on the plan (unless manually
-    // skipped ahead - see _remainingLegs).
-    final remainingLegs = _remainingLegs(myPosition, _route!);
+    // skipped ahead - see remainingLegs in utils/route_progress.dart).
+    final legsToGo = remainingLegs(
+      myPosition,
+      _route!,
+      manualSkipCount: _manualRouteSkipCount,
+    );
 
     _directionsService
         .route(
           origin: myPosition,
           destination: _route!.destination,
-          waypoints: remainingLegs,
+          waypoints: legsToGo,
         )
         .then((result) {
       if (!mounted) return;
       setState(() {
         _myEtaDistanceMeters = result.distanceMeters.toDouble();
         _myEtaDuration = Duration(seconds: result.durationSeconds);
-        _myEtaRemainingStops = remainingLegs.length;
+        _myEtaRemainingStops = legsToGo.length;
         _myRoutePolyline = result.polyline;
       });
     }).catchError((_) {
       // A live ETA is a nice-to-have - don't interrupt the user with an
       // error toast for a background recalculation failure.
     }).whenComplete(() => _etaCalcInFlight = false);
-  }
-
-  /// Legs (the start point, then waypoints) this member hasn't reached yet,
-  /// in order, starting from the first one still further than
-  /// [_waypointArrivalRadiusMeters] away - anything before that is treated
-  /// as already passed. This is a simple proximity heuristic recomputed
-  /// fresh from wherever the member currently is - not persisted "visited"
-  /// state - so it self-corrects if someone backtracks, and needs no extra
-  /// sync with other members.
-  ///
-  /// [_manualRouteSkipCount] additionally forces the first N legs to count
-  /// as passed regardless of proximity - the "skip ahead" button's way of
-  /// saying "don't route me there, I'm not going" (e.g. skipping the
-  /// meetup point) rather than "I haven't gotten there yet". The two are
-  /// combined with whichever has passed more legs, since neither should be
-  /// able to walk the other backwards.
-  List<RouteStop> _remainingLegs(RouteStop myPosition, RoutePlan route) {
-    final legs = [route.origin, ...route.waypoints];
-    var firstUnreachedIndex = legs.length;
-    for (var i = 0; i < legs.length; i++) {
-      final distanceToStop = Geolocator.distanceBetween(
-        myPosition.lat,
-        myPosition.lng,
-        legs[i].lat,
-        legs[i].lng,
-      );
-      if (distanceToStop > _waypointArrivalRadiusMeters) {
-        firstUnreachedIndex = i;
-        break;
-      }
-    }
-    final passedIndex =
-        max(firstUnreachedIndex, _manualRouteSkipCount).clamp(0, legs.length);
-    return legs.sublist(passedIndex);
   }
 
   /// Advances the manual "skip ahead" override by one leg (start point,

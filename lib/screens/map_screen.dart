@@ -219,8 +219,6 @@ class _MapScreenState extends State<MapScreen> {
         .snapshots()
         .listen((doc) => _handleMembershipSnapshot(doc));
 
-    _checkOwnership();
-
     // Sharing defaults to on: most people opening a group's map are here to
     // be tracked, and re-tapping "start sharing" every time you reopen the
     // screen (sharing state isn't persisted - see stopSharing() in dispose())
@@ -327,32 +325,29 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Future<void> _checkOwnership() async {
-    final doc = await FirebaseFirestore.instance
-        .collection('groups')
-        .doc(widget.group.id)
-        .collection('members')
-        .doc(_authService.uid)
-        .get();
-    if (mounted) {
-      setState(() => _isOwner = doc.data()?['role'] == 'owner');
-    }
-  }
-
-  /// Reacts to this device's own membership doc disappearing - the owner
-  /// removed this member (see GroupService.removeMember). Stops sharing
-  /// right away (rather than letting the next location write silently fail
-  /// with permission-denied), then tells the member and sends them back to
-  /// the home screen once acknowledged.
+  /// Reacts to this device's own membership doc, live: keeps `_isOwner` in
+  /// sync (not just set once at open - the owner role can change out from
+  /// under this device, e.g. inheriting ownership when the previous owner
+  /// leaves - see GroupService.leaveGroup) and detects the doc disappearing
+  /// entirely, meaning the owner removed this member (see
+  /// GroupService.removeMember). On removal, stops sharing right away
+  /// (rather than letting the next location write silently fail with
+  /// permission-denied), then tells the member and sends them back to the
+  /// home screen once acknowledged.
   ///
-  /// Nothing in the UI currently lets a member remove *themselves*
-  /// (GroupService.leaveGroup exists but isn't wired up), so this only
-  /// ever fires from an owner-initiated removal today - if a self-leave
-  /// flow is added later, it should navigate away directly rather than
-  /// relying on this same listener, which would otherwise show a
-  /// "you were removed" dialog for a voluntary leave too.
+  /// A voluntary leave (see _leaveTrip) deletes this same doc, so it marks
+  /// `_removedFromGroup` itself beforehand to suppress the "you were
+  /// removed" dialog for that self-initiated case.
   Future<void> _handleMembershipSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) async {
-    if (doc.exists || _removedFromGroup || !mounted) return;
+    if (doc.exists) {
+      final isOwner = doc.data()?['role'] == 'owner';
+      if (isOwner != _isOwner && mounted) {
+        setState(() => _isOwner = isOwner);
+      }
+      return;
+    }
+
+    if (_removedFromGroup || !mounted) return;
     _removedFromGroup = true;
 
     await _locationService.stopSharing();

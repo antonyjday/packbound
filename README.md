@@ -238,6 +238,16 @@ see [CLEANUP.md](CLEANUP.md).
       locations write rule requires still being a member at that moment -
       deleting membership first would've made that best-effort cleanup
       silently fail too. Deployed to the live project.
+- [x] Fixed: when ownership passed to a successor (owner leaves, other
+      members remain), the successor's own app didn't reflect their new
+      privileges - `_isOwner` was only ever set once, from a one-off
+      fetch in `initState`, so a role change after the map screen was
+      already open (exactly what happens on a live handoff) went
+      unnoticed and their menu stayed stuck on member-only options. Folded
+      the ownership check into the existing live membership-doc listener
+      (previously only used to detect removal) instead of a separate
+      one-time `_checkOwnership()` call, so `_isOwner` now updates in
+      real time same as everything else derived from that doc.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

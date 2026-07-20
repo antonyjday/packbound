@@ -1199,6 +1199,28 @@ class _MapScreenState extends State<MapScreen> {
                         ),
                       ),
                     if (expiryBanner != null) expiryBanner,
+                    // Persistent ambient indicator, not a one-off alert like
+                    // the two above - stays up the whole time you're owner
+                    // (including right after inheriting it - see the
+                    // snackbar in _handleMembershipSnapshot for that
+                    // one-time transition notice) so it's never unclear
+                    // whose trip settings/route changes will actually apply.
+                    if (_isOwner)
+                      Container(
+                        width: double.infinity,
+                        color: Colors.deepPurple,
+                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.star, color: Colors.white, size: 16),
+                            SizedBox(width: 8),
+                            Text(
+                              "You're the owner of this trip",
+                              style: TextStyle(color: Colors.white, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),

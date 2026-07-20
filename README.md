@@ -253,6 +253,11 @@ see [CLEANUP.md](CLEANUP.md).
       own. Only fires on a genuine transition (not on first opening the
       map screen already as owner), by comparing against the *previous*
       `_isOwner` value before the membership listener overwrites it.
+- [x] Added a persistent purple banner ("You're the owner of this trip")
+      at the top of the map whenever `_isOwner` is true - the one-off
+      handoff snackbar above only covers the moment ownership changes,
+      not an ongoing reminder of whose settings/route changes actually
+      apply while looking at the map generally.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

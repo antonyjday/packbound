@@ -67,6 +67,12 @@ class _MapScreenState extends State<MapScreen> {
   // group-doc listener).
   int _routeStepIndex = -1;
 
+  // How many of this member's leading legs (start point, then waypoints in
+  // order) the "skip ahead" button has manually forced to count as passed,
+  // regardless of actual proximity - see _remainingLegs/_toggleSkipRouteLeg.
+  // Reset to 0 whenever the route itself changes.
+  int _manualRouteSkipCount = 0;
+
   // How close to a waypoint counts as "arrived" for the purposes of the
   // live ETA - waypoints within this radius are treated as already passed
   // and routed past, rather than back through, on the next recalculation.
@@ -161,6 +167,7 @@ class _MapScreenState extends State<MapScreen> {
           _lastEtaCalcAt = null;
           _lastEtaCalcPosition = null;
           _routeStepIndex = -1;
+          _manualRouteSkipCount = 0;
         });
         // A newly-set (or newly-loaded) route should put the camera on its
         // start point first, not wherever the "fit everyone + the route"
@@ -385,12 +392,12 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   /// Recomputes *this device's* live distance/ETA to the route's
-  /// destination. Deliberately throttled - both at most once every 2
-  /// minutes AND only once the device has moved 300m+ since the last calc -
-  /// an unthrottled per-location-tick (every ~3s) recalculation would
-  /// multiply Directions API billing for no real benefit. Scoped to my own
-  /// progress only, not a live ETA for every member shown to everyone,
-  /// which would multiply calls by member count.
+  /// destination if due - throttled, both at most once every 2 minutes AND
+  /// only once the device has moved 300m+ since the last calc, since an
+  /// unthrottled per-location-tick (every ~3s) recalculation would multiply
+  /// Directions API billing for no real benefit. Scoped to my own progress
+  /// only, not a live ETA for every member shown to everyone, which would
+  /// multiply calls by member count.
   void _maybeRecalculateMyEta(List<LocationPoint> points) {
     if (_route == null || _etaCalcInFlight) return;
 
@@ -411,18 +418,26 @@ class _MapScreenState extends State<MapScreen> {
             300;
 
     if (!(dueByTime && dueByDistance)) return;
+    _recalculateMyEta(RouteStop(lat: myPoint.lat, lng: myPoint.lng));
+  }
+
+  /// Does the actual recalculation, bypassing the throttle above - used by
+  /// [_maybeRecalculateMyEta] once it decides a recalc is due, and directly
+  /// by the "skip ahead" button so toggling it is reflected immediately
+  /// rather than waiting for the next throttled tick.
+  void _recalculateMyEta(RouteStop myPosition) {
+    if (_route == null || _etaCalcInFlight) return;
 
     _etaCalcInFlight = true;
-    _lastEtaCalcAt = now;
-    final myPosition = RouteStop(lat: myPoint.lat, lng: myPoint.lng);
+    _lastEtaCalcAt = DateTime.now();
     _lastEtaCalcPosition = myPosition;
 
     // The trip's start point counts as this member's first leg too, same as
     // any other waypoint - a member who hasn't reached it yet should be
     // routed there before the rest of the planned stops/destination, not
-    // straight past it to whatever's next on the plan.
-    final remainingLegs =
-        _remainingLegs(myPosition, [_route!.origin, ..._route!.waypoints]);
+    // straight past it to whatever's next on the plan (unless manually
+    // skipped ahead - see _remainingLegs).
+    final remainingLegs = _remainingLegs(myPosition, _route!);
 
     _directionsService
         .route(
@@ -446,12 +461,21 @@ class _MapScreenState extends State<MapScreen> {
 
   /// Legs (the start point, then waypoints) this member hasn't reached yet,
   /// in order, starting from the first one still further than
-  /// [_waypointArrivalRadiusMeters] away. Anything before that is treated as
-  /// already passed. This is a simple proximity heuristic recomputed fresh
-  /// from wherever the member currently is - not persisted "visited" state -
-  /// so it self-corrects if someone backtracks, and needs no extra sync with
-  /// other members.
-  List<RouteStop> _remainingLegs(RouteStop myPosition, List<RouteStop> legs) {
+  /// [_waypointArrivalRadiusMeters] away - anything before that is treated
+  /// as already passed. This is a simple proximity heuristic recomputed
+  /// fresh from wherever the member currently is - not persisted "visited"
+  /// state - so it self-corrects if someone backtracks, and needs no extra
+  /// sync with other members.
+  ///
+  /// [_manualRouteSkipCount] additionally forces the first N legs to count
+  /// as passed regardless of proximity - the "skip ahead" button's way of
+  /// saying "don't route me there, I'm not going" (e.g. skipping the
+  /// meetup point) rather than "I haven't gotten there yet". The two are
+  /// combined with whichever has passed more legs, since neither should be
+  /// able to walk the other backwards.
+  List<RouteStop> _remainingLegs(RouteStop myPosition, RoutePlan route) {
+    final legs = [route.origin, ...route.waypoints];
+    var firstUnreachedIndex = legs.length;
     for (var i = 0; i < legs.length; i++) {
       final distanceToStop = Geolocator.distanceBetween(
         myPosition.lat,
@@ -460,10 +484,41 @@ class _MapScreenState extends State<MapScreen> {
         legs[i].lng,
       );
       if (distanceToStop > _waypointArrivalRadiusMeters) {
-        return legs.sublist(i);
+        firstUnreachedIndex = i;
+        break;
       }
     }
-    return const [];
+    final passedIndex =
+        max(firstUnreachedIndex, _manualRouteSkipCount).clamp(0, legs.length);
+    return legs.sublist(passedIndex);
+  }
+
+  /// Advances the manual "skip ahead" override by one leg (start point,
+  /// then each waypoint in order); once every leg is skipped - meaning
+  /// this member's route already goes straight to the destination -
+  /// pressing again resets it, restoring the start point and all waypoints
+  /// to their route. Forces an immediate recalculation rather than waiting
+  /// for the next throttled tick, since a manual toggle like this should
+  /// be reflected right away.
+  void _toggleSkipRouteLeg(RoutePlan route, List<LocationPoint> points) {
+    final legCount = 1 + route.waypoints.length; // start point + waypoints
+    setState(() {
+      _manualRouteSkipCount =
+          _manualRouteSkipCount >= legCount ? 0 : _manualRouteSkipCount + 1;
+    });
+    final mine = points.where((p) => p.userId == _authService.uid);
+    if (mine.isNotEmpty) {
+      _recalculateMyEta(RouteStop(lat: mine.first.lat, lng: mine.first.lng));
+    }
+  }
+
+  /// Describes what the *next* press of the skip button will do.
+  String _skipRouteLegLabel(RoutePlan route) {
+    final legCount = 1 + route.waypoints.length;
+    if (_manualRouteSkipCount >= legCount) return 'Resume full route';
+    return _manualRouteSkipCount == 0
+        ? 'Skip start point'
+        : 'Skip stop $_manualRouteSkipCount';
   }
 
   Set<Marker> _buildRouteMarkers(RoutePlan route) {
@@ -939,6 +994,30 @@ class _MapScreenState extends State<MapScreen> {
                     onPressed: () => _stepThroughRoute(route, points),
                     tooltip: _nextRouteStepLabel(route),
                     child: const Icon(Icons.skip_next),
+                  ),
+                ),
+
+              // Manually skips this member's own live route/ETA past legs
+              // it would otherwise still be routed to (starting with the
+              // start point, then each waypoint) - e.g. "I'm not going to
+              // the meetup point, just route me onward". Once every leg is
+              // skipped (routing straight to the destination), pressing
+              // again restores the full planned route - see
+              // _toggleSkipRouteLeg. Unlike the step button above, this
+              // changes the actual route/ETA, not just the camera.
+              if (route != null)
+                Positioned(
+                  top: 12,
+                  right: 180,
+                  child: FloatingActionButton.small(
+                    heroTag: 'skipRouteLeg',
+                    onPressed: () => _toggleSkipRouteLeg(route, points),
+                    tooltip: _skipRouteLegLabel(route),
+                    child: Icon(
+                      _manualRouteSkipCount >= 1 + route.waypoints.length
+                          ? Icons.restore
+                          : Icons.fast_forward,
+                    ),
                   ),
                 ),
 

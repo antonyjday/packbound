@@ -27,10 +27,15 @@ position on a shared map for the duration of the trip.
   alongside the shared plan — so the route reflects where *they* actually
   are, not just where the owner was when they set it. A member who hasn't
   reached the trip's start point yet is routed there first, before the
-  rest of the stops/destination, rather than straight past it. Opening a group with a
-  route set centers the map on its start point first, and a step button
-  lets you walk the camera through each stop in order, then the
-  destination, then your own current location, then back to the start.
+  rest of the stops/destination, rather than straight past it — unless
+  manually skipped: a skip-ahead button lets you push your own route past
+  the start point, then each stop in turn, straight to the destination
+  ("I'm not going to the meetup point, just route me onward"), and once
+  fully skipped, pressing it again restores the full planned route.
+  Opening a group with a route set centers the map on its start point
+  first, and a separate step button lets you walk the camera (not your
+  actual route) through each stop in order, then the destination, then
+  your own current location, then back to the start.
 - **Offline awareness** — banner when the device loses connectivity.
 
 ## Tech stack
@@ -160,6 +165,14 @@ see [CLEANUP.md](CLEANUP.md).
       point is now treated as this member's first leg, same proximity-based
       "already passed" logic as any other stop - so someone who hasn't
       convened at the start yet is routed there first, not past it.
+- [x] Added a skip-ahead button (top-right, next to the step-through
+      button) that manually forces a member's own route/ETA past legs it
+      would otherwise still route them to, one at a time: start point
+      first, then each waypoint in order. Once every leg is skipped (routing
+      straight to the destination), pressing again resets it, restoring the
+      full planned route. Unlike the step-through button, this changes the
+      actual route/ETA and dashed line, not just the camera, and recalculates
+      immediately rather than waiting for the next throttled tick.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

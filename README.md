@@ -248,6 +248,11 @@ see [CLEANUP.md](CLEANUP.md).
       (previously only used to detect removal) instead of a separate
       one-time `_checkOwnership()` call, so `_isOwner` now updates in
       real time same as everything else derived from that doc.
+- [x] Added a snackbar telling the successor when ownership hands off to
+      them - the menu unlocking new options above wasn't obvious on its
+      own. Only fires on a genuine transition (not on first opening the
+      map screen already as owner), by comparing against the *previous*
+      `_isOwner` value before the membership listener overwrites it.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

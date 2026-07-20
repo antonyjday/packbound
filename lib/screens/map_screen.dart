@@ -107,6 +107,12 @@ class _MapScreenState extends State<MapScreen> {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _membershipSub;
   bool _removedFromGroup = false;
 
+  // Set once the first membership snapshot has been processed - lets
+  // _handleMembershipSnapshot tell "became owner just now" (worth a
+  // notification) apart from "was already owner when this screen opened"
+  // (not a change, nothing to announce).
+  bool _hasSeenMembership = false;
+
   // Hard-cap expiry, kept in sync from the group doc listener so the
   // countdown/warning banner reflects extensions immediately.
   Timestamp? _tripExpiresAt;
@@ -341,8 +347,24 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _handleMembershipSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) async {
     if (doc.exists) {
       final isOwner = doc.data()?['role'] == 'owner';
+      // Compare against the *old* _isOwner before it's overwritten below -
+      // only a real transition (not just the initial value on first open)
+      // is worth announcing.
+      final justBecameOwner = _hasSeenMembership && !_isOwner && isOwner;
+      _hasSeenMembership = true;
+
       if (isOwner != _isOwner && mounted) {
         setState(() => _isOwner = isOwner);
+      }
+      if (justBecameOwner && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "You're now the owner of this trip — the previous owner left.",
+            ),
+            duration: Duration(seconds: 6),
+          ),
+        );
       }
       return;
     }

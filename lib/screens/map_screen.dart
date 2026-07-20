@@ -412,6 +412,119 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  /// Any member can leave, including the owner. An owner leaving while
+  /// other members are still around gets an extra warning-then-"are you
+  /// sure" pair of dialogs instead of the single confirmation everyone
+  /// else gets, since it has a bigger consequence (an automatic ownership
+  /// handoff - see GroupService.leaveGroup) that's worth pausing on twice.
+  Future<void> _confirmLeaveTrip() async {
+    var ownerWithOthersPresent = false;
+    if (_isOwner) {
+      final members = await FirebaseFirestore.instance
+          .collection('groups')
+          .doc(widget.group.id)
+          .collection('members')
+          .get();
+      ownerWithOthersPresent = members.docs.length > 1;
+    }
+
+    if (!mounted) return;
+
+    if (ownerWithOthersPresent) {
+      final acknowledged = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("You're the owner"),
+          content: const Text(
+            "Other members are still in this trip. If you leave, ownership "
+            "will automatically pass to whoever's been in the trip the "
+            'longest.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      );
+      if (acknowledged != true || !mounted) return;
+
+      final reallySure = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Are you sure?'),
+          content: const Text(
+            "This will hand off ownership and remove you from the trip. "
+            "This can't be undone.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Yes, leave trip'),
+            ),
+          ],
+        ),
+      );
+      if (reallySure != true) return;
+    } else {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Leave this trip?'),
+          content: const Text(
+            "You'll stop sharing and seeing this group's location. You can "
+            'rejoin later with a new invite if needed.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Leave'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
+    await _leaveTrip();
+  }
+
+  Future<void> _leaveTrip() async {
+    // Marked *before* the membership doc is actually deleted, so
+    // _handleMembershipSnapshot's listener - which reacts to that same
+    // deletion for the "the owner removed me" case - doesn't also pop up
+    // its "you were removed" dialog for this self-initiated leave.
+    _removedFromGroup = true;
+    await _locationService.stopSharing();
+    try {
+      await _groupService.leaveGroup(widget.group.id, _authService.uid!);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+      return;
+    }
+    if (mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+  }
+
   Future<void> _openSetRoute() async {
     await Navigator.push(
       context,
@@ -898,16 +1011,20 @@ class _MapScreenState extends State<MapScreen> {
       appBar: AppBar(
         title: Text(widget.group.name),
         actions: [
-          if (_isOwner && !_groupEnded)
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'extend') _extendTrip();
-                if (value == 'end') _confirmEndTrip();
-                if (value == 'route') _openSetRoute();
-                if (value == 'clear_route') _clearRoute();
-                if (value == 'toggle_invite') _toggleMembersCanInvite();
-              },
-              itemBuilder: (context) => [
+          // Always shown (not just for the owner) so every member has a
+          // way to leave the trip - owner-only actions are added inside
+          // conditionally instead of gating the whole menu.
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'extend') _extendTrip();
+              if (value == 'end') _confirmEndTrip();
+              if (value == 'route') _openSetRoute();
+              if (value == 'clear_route') _clearRoute();
+              if (value == 'toggle_invite') _toggleMembersCanInvite();
+              if (value == 'leave') _confirmLeaveTrip();
+            },
+            itemBuilder: (context) => [
+              if (_isOwner && !_groupEnded) ...[
                 const PopupMenuItem(
                   value: 'extend',
                   child: ListTile(
@@ -951,8 +1068,18 @@ class _MapScreenState extends State<MapScreen> {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
+                const PopupMenuDivider(),
               ],
-            ),
+              const PopupMenuItem(
+                value: 'leave',
+                child: ListTile(
+                  leading: Icon(Icons.exit_to_app, color: Colors.red),
+                  title: Text('Leave trip'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
           // Hidden from non-owners when the owner has turned off member
           // invites - the owner always keeps access to it.
           if (_isOwner || _membersCanInvite)

@@ -128,13 +128,45 @@ class GroupService {
         .update({'route': FieldValue.delete()});
   }
 
-  Future<void> leaveGroup(String groupId, String userId) {
-    return _db
-        .collection('groups')
-        .doc(groupId)
-        .collection('members')
-        .doc(userId)
-        .delete();
+  /// Removes the given user from the group - anyone can leave, including
+  /// the owner. If the leaving user is the owner, ownership passes to
+  /// whichever remaining member has been in the group the longest (the
+  /// earliest `joinedAt`) before their own membership is removed; the
+  /// update rule for changing another member's role requires the caller
+  /// to still be owner at the time of the write, so the promotion has to
+  /// happen first. If no other members remain, the group is simply left
+  /// without an owner - nothing else currently depends on that.
+  Future<void> leaveGroup(String groupId, String userId) async {
+    final membersRef =
+        _db.collection('groups').doc(groupId).collection('members');
+
+    final selfDoc = await membersRef.doc(userId).get();
+    if (selfDoc.data()?['role'] == 'owner') {
+      final snapshot = await membersRef.orderBy('joinedAt').get();
+      QueryDocumentSnapshot<Map<String, dynamic>>? successor;
+      for (final doc in snapshot.docs) {
+        if (doc.id != userId) {
+          successor = doc;
+          break;
+        }
+      }
+      if (successor != null) {
+        await membersRef.doc(successor.id).update({'role': 'owner'});
+      }
+    }
+
+    await membersRef.doc(userId).delete();
+    try {
+      // Best-effort - self-delete is always permitted by firestore.rules,
+      // so this should never actually fail, but matches removeMember's
+      // defensive style in case that assumption ever changes.
+      await _db
+          .collection('groups')
+          .doc(groupId)
+          .collection('locations')
+          .doc(userId)
+          .delete();
+    } catch (_) {}
   }
 
   /// Owner-only: removes another member from the group entirely - not just

@@ -17,7 +17,11 @@ position on a shared map for the duration of the trip.
 - **Trip lifecycle** — groups get a 24h hard-cap expiry (extendable by the
   owner), auto-end after 10h of inactivity, and get an in-app 4h/1h warning
   banner as the deadline approaches. Ended groups have their live location
-  data wiped immediately; group metadata is purged after 30 days.
+  data wiped immediately; group metadata is purged after 30 days. Any
+  member can leave at any time, including the owner - if the owner leaves
+  while others remain, ownership automatically passes to whoever's been
+  in the trip the longest, after an extra "are you sure?" warning. The
+  owner can also remove any other member directly.
 - **Shared trip route** — the owner taps a starting point (optional — defaults
   to their current location), a destination, and any planned stops right on
   the map; it's resolved into a real driving route (via the Directions API)
@@ -209,12 +213,20 @@ see [CLEANUP.md](CLEANUP.md).
       immediately stops location sharing (rather than letting the next
       write silently fail with permission-denied), shows a dialog telling
       them they've been removed, and sends them back to the home screen
-      once acknowledged. Only ever fires from an owner-initiated removal
-      today, since no self-leave flow is wired up yet
-      (`GroupService.leaveGroup` exists but isn't used) - if one is added,
-      it should navigate away directly rather than relying on this same
-      listener, which would otherwise show a "you were removed" dialog
-      for a voluntary leave too.
+      once acknowledged.
+- [x] Added a "Leave trip" button for every member, including the owner
+      (`GroupService.leaveGroup` - previously written but never wired up
+      to any UI). An owner leaving while other members remain gets an
+      extra warning-then-"are you sure?" pair of dialogs instead of the
+      single confirmation everyone else gets, since ownership then
+      automatically passes to whichever remaining member has been in the
+      trip the longest (earliest `joinedAt`) before the leaving owner's
+      own membership is removed - the update rule for changing another
+      member's role requires the caller to still be owner at the time of
+      the write, so the promotion has to happen first. Marks the removal
+      as self-initiated before deleting the membership doc, so the
+      removed-member listener above doesn't also show its "you were
+      removed" dialog for this voluntary leave.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

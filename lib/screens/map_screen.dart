@@ -100,6 +100,13 @@ class _MapScreenState extends State<MapScreen> {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _groupStatusSub;
   bool _groupEnded = false;
 
+  // Detects this device's own membership doc being deleted - i.e. the
+  // owner removed this member (see GroupService.removeMember) - distinct
+  // from the group ending, which is handled above via the group doc's
+  // status field instead. Guards against firing more than once.
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _membershipSub;
+  bool _removedFromGroup = false;
+
   // Hard-cap expiry, kept in sync from the group doc listener so the
   // countdown/warning banner reflects extensions immediately.
   Timestamp? _tripExpiresAt;
@@ -203,6 +210,14 @@ class _MapScreenState extends State<MapScreen> {
         }
       }
     });
+
+    _membershipSub = FirebaseFirestore.instance
+        .collection('groups')
+        .doc(widget.group.id)
+        .collection('members')
+        .doc(_authService.uid)
+        .snapshots()
+        .listen((doc) => _handleMembershipSnapshot(doc));
 
     _checkOwnership();
 
@@ -321,6 +336,49 @@ class _MapScreenState extends State<MapScreen> {
         .get();
     if (mounted) {
       setState(() => _isOwner = doc.data()?['role'] == 'owner');
+    }
+  }
+
+  /// Reacts to this device's own membership doc disappearing - the owner
+  /// removed this member (see GroupService.removeMember). Stops sharing
+  /// right away (rather than letting the next location write silently fail
+  /// with permission-denied), then tells the member and sends them back to
+  /// the home screen once acknowledged.
+  ///
+  /// Nothing in the UI currently lets a member remove *themselves*
+  /// (GroupService.leaveGroup exists but isn't wired up), so this only
+  /// ever fires from an owner-initiated removal today - if a self-leave
+  /// flow is added later, it should navigate away directly rather than
+  /// relying on this same listener, which would otherwise show a
+  /// "you were removed" dialog for a voluntary leave too.
+  Future<void> _handleMembershipSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) async {
+    if (doc.exists || _removedFromGroup || !mounted) return;
+    _removedFromGroup = true;
+
+    await _locationService.stopSharing();
+    if (!mounted) return;
+    setState(() => _sharing = false);
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Removed from convoy'),
+        content: const Text(
+          "The owner has removed you from this convoy. You'll need a new "
+          'invite to rejoin.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+
+    if (mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
 
@@ -557,6 +615,7 @@ class _MapScreenState extends State<MapScreen> {
     _staleTicker?.cancel();
     _connectivitySub?.cancel();
     _groupStatusSub?.cancel();
+    _membershipSub?.cancel();
     _locationService.stopSharing();
     super.dispose();
   }

@@ -203,8 +203,18 @@ see [CLEANUP.md](CLEANUP.md).
       their live location doc (so their marker disappears immediately
       rather than lingering as a stale pin). Needed a `firestore.rules`
       change to let the owner delete another member's location doc -
-      **must be deployed** (`firebase deploy --only firestore:rules`)
-      before this works against the live project.
+      deployed to the live project.
+- [x] Added graceful handling on the *removed* member's own device: a new
+      listener on their own membership doc detects it being deleted,
+      immediately stops location sharing (rather than letting the next
+      write silently fail with permission-denied), shows a dialog telling
+      them they've been removed, and sends them back to the home screen
+      once acknowledged. Only ever fires from an owner-initiated removal
+      today, since no self-leave flow is wired up yet
+      (`GroupService.leaveGroup` exists but isn't used) - if one is added,
+      it should navigate away directly rather than relying on this same
+      listener, which would otherwise show a "you were removed" dialog
+      for a voluntary leave too.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -217,11 +227,6 @@ see [CLEANUP.md](CLEANUP.md).
       before shipping a release build.
 
 **Known gaps / follow-ups called out in the code:**
-- [ ] A member who gets removed doesn't get any graceful in-app handling on
-      their own device - their next location write just gets silently
-      permission-denied (unhandled), and they aren't navigated away from
-      the map or told they've been removed. Owner-side removal itself
-      works (see "Done" below); this is the removed member's own experience.
 - [ ] In landscape orientation, the bottom-left route info stack (marker
       legend, full-route chip, "you" chip) should lay out left-to-right
       instead of stacked top-to-bottom, since vertical space is scarcer.

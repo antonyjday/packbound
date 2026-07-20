@@ -229,11 +229,20 @@ class _MapScreenState extends State<MapScreen> {
         .collection('members')
         .doc(_authService.uid)
         .snapshots()
-        .listen((doc) => _handleMembershipSnapshot(doc), onError: (_) {
-      // Same reasoning as _groupStatusSub's onError above - this
-      // listener reads this device's own membership doc, so losing read
-      // access to it (post-leave/removal) is expected, not exceptional.
-    });
+        .listen(
+          (doc) => _handleMembershipSnapshot(doc),
+          // NOT just quiet log-noise suppression: reading your OWN
+          // membership doc requires isMember(groupId), which itself
+          // depends on that exact doc's existence - so the moment it's
+          // deleted (owner removed you, or you left), your read access
+          // to observe that fact disappears too. Firestore reports that
+          // as a permission-denied *error* on this listener, not a
+          // graceful "document doesn't exist" data event, so this is
+          // actually the primary signal _handleMembershipRemoved needs -
+          // doc.exists==false in _handleMembershipSnapshot mostly only
+          // ever fires from the stale-cache case handled there instead.
+          onError: (_) => _handleMembershipRemoved(),
+        );
 
     // Sharing defaults to on: most people opening a group's map are here to
     // be tracked, and re-tapping "start sharing" every time you reopen the
@@ -389,7 +398,19 @@ class _MapScreenState extends State<MapScreen> {
     // new membership arrives. Treating that as a real removal would
     // incorrectly boot someone the moment they rejoin.
     if (!_hasSeenMembership) return;
+    await _handleMembershipRemoved();
+  }
 
+  /// Tells this member they've been removed (or have left) and sends them
+  /// back to the home screen once acknowledged. Called from two places:
+  /// _handleMembershipSnapshot's doc.exists==false branch (the stale-cache
+  /// case, gated on _hasSeenMembership there), and - the primary real-world
+  /// path - _membershipSub's onError, since reading your OWN membership
+  /// doc requires isMember(groupId), which itself depends on that exact
+  /// doc's existence, so Firestore reports the moment it's deleted as a
+  /// permission-denied *error* on this listener, not a graceful "document
+  /// doesn't exist" data event.
+  Future<void> _handleMembershipRemoved() async {
     if (_removedFromGroup || !mounted) return;
     _removedFromGroup = true;
 

@@ -284,6 +284,30 @@ see [CLEANUP.md](CLEANUP.md).
       being silently ignored. Found while investigating repeated
       permission-denied errors logged during aggressive join/leave testing
       between two devices.
+- [x] Fixed the real bug behind "removing a member doesn't do anything on
+      their own device": reading your OWN membership doc requires
+      `isMember(groupId)`, which itself depends on that exact doc's
+      existence - so the moment it's deleted (owner removed you, or you
+      left), Firestore reports a `PERMISSION_DENIED` **error** on that
+      listener, not a graceful "document doesn't exist" data event. The
+      `onError` handler added just above was silently swallowing exactly
+      this signal instead of treating it as "you've been removed" -
+      `_membershipSub`'s `onError` now calls the same removal handling
+      the (rarely-hit) `doc.exists == false` path uses.
+- [x] Fixed a second bug found while verifying the above on real devices:
+      `joinGroupByInviteCode` unconditionally overwrote the member doc
+      based only on whether the group was currently ownerless, with no
+      check for "am I already a member?" - so simply re-entering an
+      invite code you'd already joined with (e.g. after the app restarts
+      and loses its "which group am I in" navigation state) could
+      silently demote an existing owner back to an ordinary 'member'.
+      Now a no-op if the member doc already exists. Needed a
+      `firestore.rules` change too: checking "do I already have a member
+      doc" requires reading it, but the read rule required already being
+      a confirmed member - a chicken-and-egg permission-denied for anyone
+      joining fresh. The read rule now also allows any signed-in user to
+      read (only) their own potential doc regardless of whether it
+      exists yet. Deployed to the live project.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

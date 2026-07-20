@@ -64,6 +64,15 @@ class GroupService {
   /// joining as an ordinary member. Wrapped in a transaction so two people
   /// racing to rejoin an abandoned group at once can't both end up
   /// claiming it: only whichever commits first still sees `ownerId` null.
+  ///
+  /// If this user is already a member (e.g. they re-enter the invite code
+  /// after the app restarted and lost its "which group am I in" navigation
+  /// state, or just tap an old invite link again), their existing
+  /// membership doc is left completely untouched - otherwise this would
+  /// unconditionally overwrite it based only on whether the group
+  /// *currently* has an owner, which could silently demote an existing
+  /// owner back to an ordinary 'member' just for re-entering their own
+  /// invite code.
   Future<ConvoyGroup> joinGroupByInviteCode({
     required String inviteCode,
     required String userId,
@@ -87,10 +96,14 @@ class GroupService {
     }
 
     await _db.runTransaction((transaction) async {
+      final memberRef = groupRef.collection('members').doc(userId);
+      final existingMember = await transaction.get(memberRef);
+      if (existingMember.exists) return;
+
       final freshGroupDoc = await transaction.get(groupRef);
       final becomingOwner = freshGroupDoc.data()?['ownerId'] == null;
 
-      transaction.set(groupRef.collection('members').doc(userId), {
+      transaction.set(memberRef, {
         'joinedAt': FieldValue.serverTimestamp(),
         'role': becomingOwner ? 'owner' : 'member',
         'sharingEnabled': true,

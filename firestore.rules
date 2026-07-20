@@ -47,8 +47,15 @@ service cloud.firestore {
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerId']));
 
       match /members/{memberId} {
-        // A member can read the member list only if they are already a member
-        allow read: if isMember(groupId);
+        // A member can read the member list only if they are already a
+        // member. The second clause is narrower: anyone signed in can read
+        // (only) their OWN potential doc regardless of whether it exists
+        // yet - needed so joinGroupByInviteCode can check "am I already a
+        // member of this group?" before deciding whether to write, without
+        // that check itself being a chicken-and-egg permission-denied for
+        // someone who isn't a member yet.
+        allow read: if isMember(groupId) ||
+          (isSignedIn() && request.auth.uid == memberId);
         // A user can add themselves as a member: either joining an existing
         // group (role must be 'member'), claiming ownership of a currently
         // ownerless one (role 'owner', group.ownerId already null - see the

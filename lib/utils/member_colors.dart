@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-// hueViolet/hueAzure are reserved for route markers (destination/waypoints
-// in map_screen.dart's _buildRouteMarkers) so a member's color can never be
-// confused with those.
+// hueViolet/hueAzure/hueGreen are reserved for route markers
+// (destination/waypoints/start point in map_screen.dart's
+// _buildRouteMarkers) so a member's color can never be confused with those.
 const _memberHues = [
   BitmapDescriptor.hueRed,
   BitmapDescriptor.hueOrange,
   BitmapDescriptor.hueYellow,
-  BitmapDescriptor.hueGreen,
   BitmapDescriptor.hueCyan,
   BitmapDescriptor.hueBlue,
   BitmapDescriptor.hueMagenta,

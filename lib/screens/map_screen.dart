@@ -528,6 +528,12 @@ class _MapScreenState extends State<MapScreen> {
   Set<Marker> _buildRouteMarkers(RoutePlan route) {
     final markers = <Marker>{
       Marker(
+        markerId: const MarkerId('route_start'),
+        position: LatLng(route.origin.lat, route.origin.lng),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        infoWindow: const InfoWindow(title: 'Starting point'),
+      ),
+      Marker(
         markerId: const MarkerId('route_destination'),
         position: LatLng(route.destination.lat, route.destination.lng),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),

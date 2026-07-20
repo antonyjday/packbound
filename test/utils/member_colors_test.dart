@@ -9,16 +9,18 @@ void main() {
       expect(markerHueForUser(uid), markerHueForUser(uid));
     });
 
-    test('never returns hueViolet or hueAzure - reserved for route markers',
+    test(
+        'never returns hueViolet, hueAzure, or hueGreen - reserved for route markers',
         () {
       // A spread of arbitrary uids, enough to be confident the palette
       // (checked here indirectly, since it's private to member_colors.dart)
-      // doesn't include either reserved hue for any input.
+      // doesn't include any reserved hue for any input.
       final uids = List.generate(50, (i) => 'user-$i');
       for (final uid in uids) {
         final hue = markerHueForUser(uid);
         expect(hue, isNot(BitmapDescriptor.hueViolet));
         expect(hue, isNot(BitmapDescriptor.hueAzure));
+        expect(hue, isNot(BitmapDescriptor.hueGreen));
       }
     });
 

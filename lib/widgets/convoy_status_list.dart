@@ -44,6 +44,10 @@ class ConvoyStatusList extends StatelessWidget {
   Widget build(BuildContext context) {
     final sorted = [...points]
       ..sort((a, b) => a.status.index.compareTo(b.status.index));
+    // Same set of user ids in, same hue assignment out - stays in sync with
+    // the map's markers without needing the map to hand this a precomputed
+    // map, as long as both are built from the same group's points.
+    final memberHues = markerHuesForUsers(points.map((p) => p.userId));
 
     if (sorted.isEmpty) {
       return const Padding(
@@ -64,7 +68,7 @@ class ConvoyStatusList extends StatelessWidget {
         // Same color this member's map marker uses - lets you match a
         // roster row to its pin on the map at a glance, without tapping
         // markers one by one to find out who's who.
-        final memberColor = colorForMarkerHue(markerHueForUser(p.userId));
+        final memberColor = colorForMarkerHue(memberHues[p.userId]!);
 
         return ListTile(
           leading: Stack(

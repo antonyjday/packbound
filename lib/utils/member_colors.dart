@@ -14,11 +14,20 @@ const _memberHues = [
   BitmapDescriptor.hueRose,
 ];
 
-/// Deterministic per-user marker hue - the same user always gets the same
-/// color across sessions/devices/viewers, derived from their stable uid.
-/// Used for both the map marker itself and the roster's matching legend dot.
-double markerHueForUser(String userId) =>
-    _memberHues[userId.hashCode.abs() % _memberHues.length];
+/// Assigns each user a marker hue, guaranteed distinct as long as there are
+/// no more than `_memberHues.length` users in [userIds] - callers (map
+/// markers, the roster's matching legend dot) pass the same group's user
+/// ids and get the same mapping back, since the assignment only depends on
+/// the *set* of ids (sorted for a stable order), not on hashing individual
+/// ids in isolation. A previous per-id hash-based approach could - and in
+/// practice did, even with as few as 3 members - collide two different
+/// users onto the same hue.
+Map<String, double> markerHuesForUsers(Iterable<String> userIds) {
+  final sorted = userIds.toSet().toList()..sort();
+  return {
+    for (var i = 0; i < sorted.length; i++) sorted[i]: _memberHues[i % _memberHues.length],
+  };
+}
 
 /// Flutter Color matching a marker hue, for UI elements (e.g. the roster
 /// avatar) that should visually correspond to that member's map marker.

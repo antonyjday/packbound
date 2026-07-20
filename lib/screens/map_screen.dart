@@ -132,8 +132,7 @@ class _MapScreenState extends State<MapScreen> {
     _staleTicker = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) setState(() {});
     });
-    _connectivitySub =
-        Connectivity().onConnectivityChanged.listen((results) {
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
       final offline =
           results.isEmpty || results.every((r) => r == ConnectivityResult.none);
       if (offline != _deviceOffline && mounted) {
@@ -149,75 +148,81 @@ class _MapScreenState extends State<MapScreen> {
         .collection('groups')
         .doc(widget.group.id)
         .snapshots()
-        .listen((doc) async {
-      final data = doc.data();
-      final status = data?['status'];
+        .listen(
+          (doc) async {
+            final data = doc.data();
+            final status = data?['status'];
 
-      final newExpiry = data?['tripExpiresAt'] as Timestamp?;
-      if (newExpiry != _tripExpiresAt && mounted) {
-        setState(() => _tripExpiresAt = newExpiry);
-      }
+            final newExpiry = data?['tripExpiresAt'] as Timestamp?;
+            if (newExpiry != _tripExpiresAt && mounted) {
+              setState(() => _tripExpiresAt = newExpiry);
+            }
 
-      final routeData = data?['route'];
-      final newRoute = routeData != null
-          ? RoutePlan.fromMap(Map<String, dynamic>.from(routeData))
-          : null;
-      // Compare by polyline rather than object identity - a fresh RoutePlan
-      // is parsed on every snapshot even when nothing routing-related
-      // changed, and resetting the live ETA on every unrelated group-doc
-      // update (e.g. trip-expiry ticking) would make it flicker pointlessly.
-      if (newRoute?.polyline != _route?.polyline && mounted) {
-        setState(() {
-          _route = newRoute;
-          _myEtaDistanceMeters = null;
-          _myEtaDuration = null;
-          _myEtaRemainingStops = 0;
-          _myRoutePolyline = null;
-          _lastEtaCalcAt = null;
-          _lastEtaCalcPosition = null;
-          _routeStepIndex = -1;
-          _manualRouteSkipCount = 0;
-        });
-        // A route created/changed *after* this device already got its
-        // initial view (_hasAutoFitted) puts the camera on its start point
-        // specifically - a deliberate "here's where the new plan starts"
-        // cue, since the owner may be planning a trip that starts somewhere
-        // other than where members currently are. But on first ever join,
-        // _maybeAutoFit's fit-everything view (start point, waypoints,
-        // destination, and this device's own location all at once) is what
-        // should be shown instead - overriding it here would fight with
-        // that, or short-circuit it entirely if the route arrives first.
-        if (newRoute != null && _hasAutoFitted) {
-          WidgetsBinding.instance
-              .addPostFrameCallback((_) => _focusOnRouteStart(newRoute));
-        }
-      }
+            final routeData = data?['route'];
+            final newRoute = routeData != null
+                ? RoutePlan.fromMap(Map<String, dynamic>.from(routeData))
+                : null;
+            // Compare by polyline rather than object identity - a fresh RoutePlan
+            // is parsed on every snapshot even when nothing routing-related
+            // changed, and resetting the live ETA on every unrelated group-doc
+            // update (e.g. trip-expiry ticking) would make it flicker pointlessly.
+            if (newRoute?.polyline != _route?.polyline && mounted) {
+              setState(() {
+                _route = newRoute;
+                _myEtaDistanceMeters = null;
+                _myEtaDuration = null;
+                _myEtaRemainingStops = 0;
+                _myRoutePolyline = null;
+                _lastEtaCalcAt = null;
+                _lastEtaCalcPosition = null;
+                _routeStepIndex = -1;
+                _manualRouteSkipCount = 0;
+              });
+              // A route created/changed *after* this device already got its
+              // initial view (_hasAutoFitted) puts the camera on its start point
+              // specifically - a deliberate "here's where the new plan starts"
+              // cue, since the owner may be planning a trip that starts somewhere
+              // other than where members currently are. But on first ever join,
+              // _maybeAutoFit's fit-everything view (start point, waypoints,
+              // destination, and this device's own location all at once) is what
+              // should be shown instead - overriding it here would fight with
+              // that, or short-circuit it entirely if the route arrives first.
+              if (newRoute != null && _hasAutoFitted) {
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => _focusOnRouteStart(newRoute),
+                );
+              }
+            }
 
-      final newMembersCanInvite = data?['membersCanInvite'] ?? true;
-      if (newMembersCanInvite != _membersCanInvite && mounted) {
-        setState(() => _membersCanInvite = newMembersCanInvite);
-      }
+            final newMembersCanInvite = data?['membersCanInvite'] ?? true;
+            if (newMembersCanInvite != _membersCanInvite && mounted) {
+              setState(() => _membersCanInvite = newMembersCanInvite);
+            }
 
-      if (status == 'ended' && !_groupEnded) {
-        _groupEnded = true;
-        await _locationService.stopSharing();
-        if (mounted) {
-          setState(() => _sharing = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('This trip has ended. Location sharing has stopped.'),
-              duration: Duration(seconds: 5),
-            ),
-          );
-        }
-      }
-    }, onError: (_) {
-      // Once this device is no longer a member (left, or was removed),
-      // this listener's own read permission goes with it - an expected
-      // terminal state, not something to surface as an unhandled
-      // exception. dispose() (leave/removal both navigate away) cancels
-      // the subscription shortly after anyway.
-    });
+            if (status == 'ended' && !_groupEnded) {
+              _groupEnded = true;
+              await _locationService.stopSharing();
+              if (mounted) {
+                setState(() => _sharing = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'This trip has ended. Location sharing has stopped.',
+                    ),
+                    duration: Duration(seconds: 5),
+                  ),
+                );
+              }
+            }
+          },
+          onError: (_) {
+            // Once this device is no longer a member (left, or was removed),
+            // this listener's own read permission goes with it - an expected
+            // terminal state, not something to surface as an unhandled
+            // exception. dispose() (leave/removal both navigate away) cancels
+            // the subscription shortly after anyway.
+          },
+        );
 
     _membershipSub = FirebaseFirestore.instance
         .collection('groups')
@@ -275,8 +280,9 @@ class _MapScreenState extends State<MapScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Couldn\'t extend trip: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Couldn\'t extend trip: $e')));
       }
     }
   }
@@ -312,15 +318,21 @@ class _MapScreenState extends State<MapScreen> {
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
       child: Row(
         children: [
-          Icon(urgent ? Icons.warning_amber : Icons.access_time,
-              color: Colors.white, size: 20),
+          Icon(
+            urgent ? Icons.warning_amber : Icons.access_time,
+            color: Colors.white,
+            size: 20,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               _isOwner
                   ? 'Trip ends in $label. Extend it now if the convoy isn\'t done yet.'
                   : 'Trip ends in $label. Ask the owner to extend if you\'re not done.',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           if (_isOwner)
@@ -328,7 +340,9 @@ class _MapScreenState extends State<MapScreen> {
               onPressed: _extendTrip,
               style: TextButton.styleFrom(
                 backgroundColor: Colors.white,
-                foregroundColor: urgent ? Colors.red.shade700 : Colors.orange.shade800,
+                foregroundColor: urgent
+                    ? Colors.red.shade700
+                    : Colors.orange.shade800,
                 minimumSize: const Size(0, 32),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
@@ -359,7 +373,9 @@ class _MapScreenState extends State<MapScreen> {
   /// A voluntary leave (see _leaveTrip) deletes this same doc, so it marks
   /// `_removedFromGroup` itself beforehand to suppress the "you were
   /// removed" dialog for that self-initiated case.
-  Future<void> _handleMembershipSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) async {
+  Future<void> _handleMembershipSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) async {
     if (doc.exists) {
       final isOwner = doc.data()?['role'] == 'owner';
       // Compare against the *old* _isOwner before it's overwritten below -
@@ -571,7 +587,9 @@ class _MapScreenState extends State<MapScreen> {
       await _groupService.leaveGroup(widget.group.id, _authService.uid!);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
       return;
     }
@@ -584,7 +602,8 @@ class _MapScreenState extends State<MapScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => SetRouteScreen(group: widget.group, initialRoute: _route),
+        builder: (_) =>
+            SetRouteScreen(group: widget.group, initialRoute: _route),
       ),
     );
   }
@@ -594,7 +613,9 @@ class _MapScreenState extends State<MapScreen> {
       await _groupService.clearRoute(widget.group.id);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -607,7 +628,9 @@ class _MapScreenState extends State<MapScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _membersCanInvite = !next);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -636,9 +659,11 @@ class _MapScreenState extends State<MapScreen> {
     final myPoint = mine.first;
 
     final now = DateTime.now();
-    final dueByTime = _lastEtaCalcAt == null ||
+    final dueByTime =
+        _lastEtaCalcAt == null ||
         now.difference(_lastEtaCalcAt!) >= const Duration(minutes: 2);
-    final dueByDistance = _lastEtaCalcPosition == null ||
+    final dueByDistance =
+        _lastEtaCalcPosition == null ||
         Geolocator.distanceBetween(
               _lastEtaCalcPosition!.lat,
               _lastEtaCalcPosition!.lng,
@@ -680,17 +705,19 @@ class _MapScreenState extends State<MapScreen> {
           waypoints: legsToGo,
         )
         .then((result) {
-      if (!mounted) return;
-      setState(() {
-        _myEtaDistanceMeters = result.distanceMeters.toDouble();
-        _myEtaDuration = Duration(seconds: result.durationSeconds);
-        _myEtaRemainingStops = legsToGo.length;
-        _myRoutePolyline = result.polyline;
-      });
-    }).catchError((_) {
-      // A live ETA is a nice-to-have - don't interrupt the user with an
-      // error toast for a background recalculation failure.
-    }).whenComplete(() => _etaCalcInFlight = false);
+          if (!mounted) return;
+          setState(() {
+            _myEtaDistanceMeters = result.distanceMeters.toDouble();
+            _myEtaDuration = Duration(seconds: result.durationSeconds);
+            _myEtaRemainingStops = legsToGo.length;
+            _myRoutePolyline = result.polyline;
+          });
+        })
+        .catchError((_) {
+          // A live ETA is a nice-to-have - don't interrupt the user with an
+          // error toast for a background recalculation failure.
+        })
+        .whenComplete(() => _etaCalcInFlight = false);
   }
 
   /// Advances the manual "skip ahead" override by one leg (start point,
@@ -703,8 +730,9 @@ class _MapScreenState extends State<MapScreen> {
   void _toggleSkipRouteLeg(RoutePlan route, List<LocationPoint> points) {
     final legCount = 1 + route.waypoints.length; // start point + waypoints
     setState(() {
-      _manualRouteSkipCount =
-          _manualRouteSkipCount >= legCount ? 0 : _manualRouteSkipCount + 1;
+      _manualRouteSkipCount = _manualRouteSkipCount >= legCount
+          ? 0
+          : _manualRouteSkipCount + 1;
     });
     final mine = points.where((p) => p.userId == _authService.uid);
     if (mine.isNotEmpty) {
@@ -738,12 +766,16 @@ class _MapScreenState extends State<MapScreen> {
     };
     for (var i = 0; i < route.waypoints.length; i++) {
       final w = route.waypoints[i];
-      markers.add(Marker(
-        markerId: MarkerId('route_waypoint_$i'),
-        position: LatLng(w.lat, w.lng),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        infoWindow: InfoWindow(title: 'Stop ${i + 1}'),
-      ));
+      markers.add(
+        Marker(
+          markerId: MarkerId('route_waypoint_$i'),
+          position: LatLng(w.lat, w.lng),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          ),
+          infoWindow: InfoWindow(title: 'Stop ${i + 1}'),
+        ),
+      );
     }
     return markers;
   }
@@ -771,14 +803,18 @@ class _MapScreenState extends State<MapScreen> {
         String? message;
         if (current == SignalStatus.lost && previous != SignalStatus.lost) {
           message = '${p.displayName} lost signal';
-        } else if (current == SignalStatus.live && previous == SignalStatus.lost) {
+        } else if (current == SignalStatus.live &&
+            previous == SignalStatus.lost) {
           message = '${p.displayName} is back online';
         }
         if (message != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(message!), duration: const Duration(seconds: 3)),
+              SnackBar(
+                content: Text(message!),
+                duration: const Duration(seconds: 3),
+              ),
             );
           });
         }
@@ -795,14 +831,16 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     final status = await _locationService.checkPermissionStatus();
-    final alreadyGranted = status == LocationPermission.always ||
+    final alreadyGranted =
+        status == LocationPermission.always ||
         status == LocationPermission.whileInUse;
 
     if (!alreadyGranted) {
       final result = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
-          builder: (_) => LocationPermissionScreen(groupName: widget.group.name),
+          builder: (_) =>
+              LocationPermissionScreen(groupName: widget.group.name),
           fullscreenDialog: true,
         ),
       );
@@ -818,8 +856,9 @@ class _MapScreenState extends State<MapScreen> {
       setState(() => _sharing = true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -830,9 +869,9 @@ class _MapScreenState extends State<MapScreen> {
   // to all look identical whenever multiple members were "live" (same
   // orange pin), making it impossible to tell who was who without tapping
   // each one.
-  Set<Marker> _buildMarkers(List<LocationPoint> points) {
+  Set<Marker> _buildMarkers(List<LocationPoint> points, Map<String, double> hues) {
     return points.map((p) {
-      final hue = markerHueForUser(p.userId);
+      final hue = hues[p.userId]!;
       final alpha = switch (p.status) {
         SignalStatus.live => 1.0,
         SignalStatus.weak => 0.65,
@@ -867,10 +906,18 @@ class _MapScreenState extends State<MapScreen> {
     final route = _route;
     final routeLats = route == null
         ? const <double>[]
-        : [route.origin.lat, route.destination.lat, ...route.waypoints.map((w) => w.lat)];
+        : [
+            route.origin.lat,
+            route.destination.lat,
+            ...route.waypoints.map((w) => w.lat),
+          ];
     final routeLngs = route == null
         ? const <double>[]
-        : [route.origin.lng, route.destination.lng, ...route.waypoints.map((w) => w.lng)];
+        : [
+            route.origin.lng,
+            route.destination.lng,
+            ...route.waypoints.map((w) => w.lng),
+          ];
 
     final lats = [...active.map((p) => p.lat), ...routeLats];
     final lngs = [...active.map((p) => p.lng), ...routeLngs];
@@ -903,7 +950,9 @@ class _MapScreenState extends State<MapScreen> {
     if (!hasActive && _route == null) return;
     _hasAutoFitted = true;
     // Let the map finish its first frame before animating the camera.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fitCameraToPoints(points));
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _fitCameraToPoints(points),
+    );
   }
 
   /// Centers the camera on the route's start point - used by the group-doc
@@ -912,14 +961,19 @@ class _MapScreenState extends State<MapScreen> {
   /// for the initial view itself; that's _fitCameraToPoints instead.
   void _focusOnRouteStart(RoutePlan route) {
     _mapController?.animateCamera(
-      CameraUpdate.newLatLngZoom(LatLng(route.origin.lat, route.origin.lng), 15),
+      CameraUpdate.newLatLngZoom(
+        LatLng(route.origin.lat, route.origin.lng),
+        15,
+      ),
     );
   }
 
   /// Every stop after the start, in order, ending with the destination -
   /// what the "step through trip" button cycles across.
-  List<RouteStop> _routeLegsAfterStart(RoutePlan route) =>
-      [...route.waypoints, route.destination];
+  List<RouteStop> _routeLegsAfterStart(RoutePlan route) => [
+    ...route.waypoints,
+    route.destination,
+  ];
 
   /// Advances the "step through trip" button one leg: first press lands on
   /// the first stop (or the destination directly, if there are no stops),
@@ -931,7 +985,9 @@ class _MapScreenState extends State<MapScreen> {
     final legs = _routeLegsAfterStart(route);
     final myLocationIndex = legs.length; // one past the destination
     final nextIndex = _routeStepIndex + 1;
-    setState(() => _routeStepIndex = nextIndex > myLocationIndex ? -1 : nextIndex);
+    setState(
+      () => _routeStepIndex = nextIndex > myLocationIndex ? -1 : nextIndex,
+    );
 
     final RouteStop? target;
     if (_routeStepIndex == -1) {
@@ -995,7 +1051,10 @@ class _MapScreenState extends State<MapScreen> {
   /// (see GroupService.removeMember) - [sheetContext] is the roster bottom
   /// sheet's own context, used both to anchor the confirmation dialog and
   /// to close the sheet afterward, same pattern as onSelect above.
-  Future<void> _confirmRemoveMember(BuildContext sheetContext, LocationPoint point) async {
+  Future<void> _confirmRemoveMember(
+    BuildContext sheetContext,
+    LocationPoint point,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: sheetContext,
       builder: (dialogContext) => AlertDialog(
@@ -1025,7 +1084,9 @@ class _MapScreenState extends State<MapScreen> {
       if (sheetContext.mounted) Navigator.pop(sheetContext);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -1093,7 +1154,10 @@ class _MapScreenState extends State<MapScreen> {
                 const PopupMenuItem(
                   value: 'end',
                   child: ListTile(
-                    leading: Icon(Icons.stop_circle_outlined, color: Colors.red),
+                    leading: Icon(
+                      Icons.stop_circle_outlined,
+                      color: Colors.red,
+                    ),
                     title: Text('End trip'),
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -1119,7 +1183,9 @@ class _MapScreenState extends State<MapScreen> {
                   value: 'toggle_invite',
                   child: ListTile(
                     leading: Icon(
-                      _membersCanInvite ? Icons.check_box : Icons.check_box_outline_blank,
+                      _membersCanInvite
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank,
                     ),
                     title: const Text('Allow members to invite'),
                     contentPadding: EdgeInsets.zero,
@@ -1149,7 +1215,9 @@ class _MapScreenState extends State<MapScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => InviteScreen(group: widget.group)),
+                  MaterialPageRoute(
+                    builder: (_) => InviteScreen(group: widget.group),
+                  ),
                 );
               },
             ),
@@ -1163,8 +1231,15 @@ class _MapScreenState extends State<MapScreen> {
           _maybeAutoFit(points);
           _maybeRecalculateMyEta(points);
           final route = _route;
+          // Includes this device's own uid even if it isn't in `points` yet
+          // (e.g. not sharing to Firestore, but still has a live GPS fix for
+          // the "my route" polyline below) - otherwise that lookup would
+          // have no entry for "me" at all.
+          final memberHues = markerHuesForUsers(
+            {...points.map((p) => p.userId), _authService.uid!},
+          );
           final markers = {
-            ..._buildMarkers(points),
+            ..._buildMarkers(points, memberHues),
             if (route != null) ..._buildRouteMarkers(route),
           };
           final myRoutePolyline = _myRoutePolyline;
@@ -1186,193 +1261,219 @@ class _MapScreenState extends State<MapScreen> {
                     Polyline(
                       polylineId: const PolylineId('my_route'),
                       points: decodePolyline(myRoutePolyline),
-                      color: colorForMarkerHue(
-                        markerHueForUser(_authService.uid!),
-                      ),
+                      color: colorForMarkerHue(memberHues[_authService.uid!]!),
                       width: 5,
                       patterns: [PatternItem.dash(20), PatternItem.gap(10)],
                     ),
                 };
-          final lostCount =
-              points.where((p) => p.status == SignalStatus.lost).length;
+          final lostCount = points
+              .where((p) => p.status == SignalStatus.lost)
+              .length;
           final expiryBanner = _buildExpiryBanner();
 
-          return Stack(
+          return Column(
             children: [
-              GoogleMap(
-                initialCameraPosition: const CameraPosition(
-                  target: LatLng(0, 0),
-                  zoom: 4,
-                ),
-                markers: markers,
-                polylines: polylines,
-                onMapCreated: (c) {
-                  _mapController = c;
-                  // Map may finish initializing after points/route already
-                  // arrived (e.g. slow device) - fit immediately in that case.
-                  _maybeAutoFit(points);
-                },
-                myLocationEnabled: true,
-              ),
-
               // Top banners - offline warning and/or trip-expiry warning,
-              // stacked so neither overlaps the other or the map controls.
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Column(
-                  children: [
-                    if (_deviceOffline)
-                      Container(
-                        width: double.infinity,
-                        color: Colors.red.shade700,
-                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.wifi_off, color: Colors.white, size: 18),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                "You're offline — your location isn't updating",
-                                style: TextStyle(color: Colors.white),
-                              ),
+              // stacked so neither overlaps the other. In normal in-flow
+              // layout (not overlaid on the map via Positioned) so they push
+              // the map and its corner buttons down when present - a fixed
+              // height/text can wrap to 2 lines depending on device width
+              // and owner-vs-member copy length, and overlaying at a fixed
+              // top offset previously let that wrapped text run under the
+              // corner buttons.
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_deviceOffline)
+                    Container(
+                      width: double.infinity,
+                      color: Colors.red.shade700,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 16,
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.wifi_off, color: Colors.white, size: 18),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "You're offline — your location isn't updating",
+                              style: TextStyle(color: Colors.white),
                             ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (expiryBanner != null) expiryBanner,
+                ],
+              ),
+              Expanded(
+                child: Stack(
+                  children: [
+                    GoogleMap(
+                      initialCameraPosition: const CameraPosition(
+                        target: LatLng(0, 0),
+                        zoom: 4,
+                      ),
+                      markers: markers,
+                      polylines: polylines,
+                      onMapCreated: (c) {
+                        _mapController = c;
+                        // Map may finish initializing after points/route already
+                        // arrived (e.g. slow device) - fit immediately in that case.
+                        _maybeAutoFit(points);
+                      },
+                      myLocationEnabled: true,
+                    ),
+
+                    // Roster button - badges with a count if anyone's signal is lost
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Badge(
+                        label: Text('$lostCount'),
+                        isLabelVisible: lostCount > 0,
+                        backgroundColor: Colors.red,
+                        child: FloatingActionButton.small(
+                          heroTag: 'roster',
+                          onPressed: () => _showStatusList(points),
+                          child: const Icon(Icons.groups),
+                        ),
+                      ),
+                    ),
+
+                    // Manual re-fit - lets users recenter on the whole group
+                    // after they've panned/zoomed away from the auto-fit view.
+                    Positioned(
+                      top: 12,
+                      right: 68,
+                      child: FloatingActionButton.small(
+                        heroTag: 'refit',
+                        onPressed: () => _fitCameraToPoints(points),
+                        child: const Icon(Icons.center_focus_strong),
+                      ),
+                    ),
+
+                    // Steps the camera through the trip: start point, then each
+                    // stop in order, then the destination, then this device's own
+                    // current location, then wraps back to the start - see
+                    // _stepThroughRoute.
+                    if (route != null)
+                      Positioned(
+                        top: 12,
+                        right: 124,
+                        child: FloatingActionButton.small(
+                          heroTag: 'stepRoute',
+                          onPressed: () => _stepThroughRoute(route, points),
+                          tooltip: _nextRouteStepLabel(route),
+                          child: const Icon(Icons.skip_next),
+                        ),
+                      ),
+
+                    // Manually skips this member's own live route/ETA past legs
+                    // it would otherwise still be routed to (starting with the
+                    // start point, then each waypoint) - e.g. "I'm not going to
+                    // the meetup point, just route me onward". Once every leg is
+                    // skipped (routing straight to the destination), pressing
+                    // again restores the full planned route - see
+                    // _toggleSkipRouteLeg. Unlike the step button above, this
+                    // changes the actual route/ETA, not just the camera.
+                    if (route != null)
+                      Positioned(
+                        top: 12,
+                        right: 180,
+                        child: FloatingActionButton.small(
+                          heroTag: 'skipRouteLeg',
+                          onPressed: () => _toggleSkipRouteLeg(route, points),
+                          tooltip: _skipRouteLegLabel(route),
+                          child: Icon(
+                            _manualRouteSkipCount >= 1 + route.waypoints.length
+                                ? Icons.restore
+                                : Icons.fast_forward,
+                          ),
+                        ),
+                      ),
+
+                    // Route info - a legend for the start/stop/destination marker
+                    // colors (otherwise only distinguishable by tapping each one),
+                    // the static full-trip distance/duration, plus this viewer's
+                    // own live progress once the first throttled recalculation
+                    // completes (see _maybeRecalculateMyEta). Anchored to the
+                    // right of the location-sharing button (56px wide, at
+                    // left: 24) rather than spanning the bottom of the map, to
+                    // leave more of the map itself visible. Stacked top-to-bottom
+                    // in portrait, but laid out left-to-right in landscape, where
+                    // vertical space is scarcer - a Wrap (rather than a plain Row)
+                    // still falls back to wrapping onto a second line instead of
+                    // overflowing off-screen if all three don't fit on one. In
+                    // portrait, the stack sits lower (bottom: 4 instead of 24) so
+                    // its bottom edge lines up with the Google Maps zoom-out
+                    // button in the opposite corner, rather than with the
+                    // location-sharing button - landscape keeps 24 since the zoom
+                    // controls sit differently there.
+                    if (route != null)
+                      Positioned(
+                        bottom:
+                            MediaQuery.of(context).orientation ==
+                                Orientation.landscape
+                            ? 24
+                            : 4,
+                        left: 92,
+                        right: 24,
+                        child: Wrap(
+                          direction:
+                              MediaQuery.of(context).orientation ==
+                                  Orientation.landscape
+                              ? Axis.horizontal
+                              : Axis.vertical,
+                          alignment: WrapAlignment.start,
+                          spacing: 2,
+                          runSpacing: 2,
+                          children: [
+                            _RouteMarkerLegend(
+                              hasStops: route.waypoints.isNotEmpty,
+                            ),
+                            _RouteInfoChip(
+                              icon: Icons.alt_route,
+                              label:
+                                  'Full route: '
+                                  '${_formatDistanceDuration(route.distanceMeters, route.durationSeconds)}',
+                            ),
+                            if (_myEtaDuration != null &&
+                                _myEtaDistanceMeters != null)
+                              _RouteInfoChip(
+                                icon: Icons.navigation,
+                                label:
+                                    'You: '
+                                    '${_formatDistanceDuration(_myEtaDistanceMeters!.round(), _myEtaDuration!.inSeconds)}'
+                                    ' to destination'
+                                    '${_myEtaRemainingStops > 0 ? ' ($_myEtaRemainingStops stop${_myEtaRemainingStops == 1 ? '' : 's'} left)' : ''}',
+                              ),
                           ],
                         ),
                       ),
-                    if (expiryBanner != null) expiryBanner,
-                  ],
-                ),
-              ),
 
-              // Roster button - badges with a count if anyone's signal is lost
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Badge(
-                  label: Text('$lostCount'),
-                  isLabelVisible: lostCount > 0,
-                  backgroundColor: Colors.red,
-                  child: FloatingActionButton.small(
-                    heroTag: 'roster',
-                    onPressed: () => _showStatusList(points),
-                    child: const Icon(Icons.groups),
-                  ),
-                ),
-              ),
-
-              // Manual re-fit - lets users recenter on the whole group
-              // after they've panned/zoomed away from the auto-fit view.
-              Positioned(
-                top: 12,
-                right: 68,
-                child: FloatingActionButton.small(
-                  heroTag: 'refit',
-                  onPressed: () => _fitCameraToPoints(points),
-                  child: const Icon(Icons.center_focus_strong),
-                ),
-              ),
-
-              // Steps the camera through the trip: start point, then each
-              // stop in order, then the destination, then this device's own
-              // current location, then wraps back to the start - see
-              // _stepThroughRoute.
-              if (route != null)
-                Positioned(
-                  top: 12,
-                  right: 124,
-                  child: FloatingActionButton.small(
-                    heroTag: 'stepRoute',
-                    onPressed: () => _stepThroughRoute(route, points),
-                    tooltip: _nextRouteStepLabel(route),
-                    child: const Icon(Icons.skip_next),
-                  ),
-                ),
-
-              // Manually skips this member's own live route/ETA past legs
-              // it would otherwise still be routed to (starting with the
-              // start point, then each waypoint) - e.g. "I'm not going to
-              // the meetup point, just route me onward". Once every leg is
-              // skipped (routing straight to the destination), pressing
-              // again restores the full planned route - see
-              // _toggleSkipRouteLeg. Unlike the step button above, this
-              // changes the actual route/ETA, not just the camera.
-              if (route != null)
-                Positioned(
-                  top: 12,
-                  right: 180,
-                  child: FloatingActionButton.small(
-                    heroTag: 'skipRouteLeg',
-                    onPressed: () => _toggleSkipRouteLeg(route, points),
-                    tooltip: _skipRouteLegLabel(route),
-                    child: Icon(
-                      _manualRouteSkipCount >= 1 + route.waypoints.length
-                          ? Icons.restore
-                          : Icons.fast_forward,
-                    ),
-                  ),
-                ),
-
-              // Route info - a legend for the start/stop/destination marker
-              // colors (otherwise only distinguishable by tapping each one),
-              // the static full-trip distance/duration, plus this viewer's
-              // own live progress once the first throttled recalculation
-              // completes (see _maybeRecalculateMyEta). Anchored to the
-              // right of the location-sharing button (56px wide, at
-              // left: 24) rather than spanning the bottom of the map, to
-              // leave more of the map itself visible. Stacked top-to-bottom
-              // in portrait, but laid out left-to-right in landscape, where
-              // vertical space is scarcer - a Wrap (rather than a plain Row)
-              // still falls back to wrapping onto a second line instead of
-              // overflowing off-screen if all three don't fit on one. In
-              // portrait, the stack sits lower (bottom: 4 instead of 24) so
-              // its bottom edge lines up with the Google Maps zoom-out
-              // button in the opposite corner, rather than with the
-              // location-sharing button - landscape keeps 24 since the zoom
-              // controls sit differently there.
-              if (route != null)
-                Positioned(
-                  bottom: MediaQuery.of(context).orientation == Orientation.landscape ? 24 : 4,
-                  left: 92,
-                  right: 24,
-                  child: Wrap(
-                    direction: MediaQuery.of(context).orientation == Orientation.landscape
-                        ? Axis.horizontal
-                        : Axis.vertical,
-                    alignment: WrapAlignment.start,
-                    spacing: 2,
-                    runSpacing: 2,
-                    children: [
-                      _RouteMarkerLegend(hasStops: route.waypoints.isNotEmpty),
-                      _RouteInfoChip(
-                        icon: Icons.alt_route,
-                        label: 'Full route: '
-                            '${_formatDistanceDuration(route.distanceMeters, route.durationSeconds)}',
-                      ),
-                      if (_myEtaDuration != null && _myEtaDistanceMeters != null)
-                        _RouteInfoChip(
-                          icon: Icons.navigation,
-                          label: 'You: '
-                              '${_formatDistanceDuration(_myEtaDistanceMeters!.round(), _myEtaDuration!.inSeconds)}'
-                              ' to destination'
-                              '${_myEtaRemainingStops > 0 ? ' ($_myEtaRemainingStops stop${_myEtaRemainingStops == 1 ? '' : 's'} left)' : ''}',
+                    // Bottom-left, not bottom-right, so it doesn't sit under the
+                    // Google Maps zoom controls the SDK draws in that corner.
+                    Positioned(
+                      bottom: 24,
+                      left: 24,
+                      child: FloatingActionButton(
+                        heroTag: 'toggleSharing',
+                        onPressed: _toggleSharing,
+                        backgroundColor: _sharing
+                            ? Colors.red
+                            : Colors.deepOrange,
+                        tooltip: _sharing
+                            ? 'Stop sharing my location'
+                            : 'Start sharing my location',
+                        child: Icon(
+                          _sharing ? Icons.location_off : Icons.location_on,
                         ),
-                    ],
-                  ),
-                ),
-
-              // Bottom-left, not bottom-right, so it doesn't sit under the
-              // Google Maps zoom controls the SDK draws in that corner.
-              Positioned(
-                bottom: 24,
-                left: 24,
-                child: FloatingActionButton(
-                  heroTag: 'toggleSharing',
-                  onPressed: _toggleSharing,
-                  backgroundColor: _sharing ? Colors.red : Colors.deepOrange,
-                  tooltip: _sharing ? 'Stop sharing my location' : 'Start sharing my location',
-                  child: Icon(_sharing ? Icons.location_off : Icons.location_on),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1402,7 +1503,10 @@ class _RouteInfoChip extends StatelessWidget {
         children: [
           Icon(icon, color: Colors.white, size: 16),
           const SizedBox(width: 6),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
         ],
       ),
     );
@@ -1448,7 +1552,10 @@ class _RouteMarkerLegend extends StatelessWidget {
         Container(
           width: 10,
           height: 10,
-          decoration: BoxDecoration(color: colorForMarkerHue(hue), shape: BoxShape.circle),
+          decoration: BoxDecoration(
+            color: colorForMarkerHue(hue),
+            shape: BoxShape.circle,
+          ),
         ),
         const SizedBox(width: 4),
         Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),

@@ -192,6 +192,11 @@ see [CLEANUP.md](CLEANUP.md).
       shrinking the member color palette by one to keep the existing
       guarantee that a member's marker color is never confused with a
       route marker's.
+- [x] Added a legend for the start/stop/destination marker colors (a small
+      chip near the route info, above "Full route: ..."), since they were
+      previously only distinguishable by tapping each one for its info
+      window. Colors are pulled from the same hues `_buildRouteMarkers`
+      uses, so it can't drift out of sync with the actual marker colors.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -205,9 +210,9 @@ see [CLEANUP.md](CLEANUP.md).
 
 **Known gaps / follow-ups called out in the code:**
 - [ ] Owner ability to remove a member from the convoy.
-- [ ] Label the start/stop/destination markers on the map itself (currently
-      only distinguishable by color and by tapping each one for its info
-      window) - either a legend or text next to each marker.
+- [ ] In landscape orientation, the bottom-left route info stack (marker
+      legend, full-route chip, "you" chip) should lay out left-to-right
+      instead of stacked top-to-bottom, since vertical space is scarcer.
 - [ ] Route search/autocomplete — setting a destination is currently
       tap-on-the-map only. Address search would need the Places API enabled
       (separate billing surface from Directions/Maps SDK) - deferred for now.

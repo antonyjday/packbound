@@ -1027,9 +1027,11 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
 
-              // Route info - static full-trip distance/duration, plus this
-              // viewer's own live progress once the first throttled
-              // recalculation completes (see _maybeRecalculateMyEta).
+              // Route info - a legend for the start/stop/destination marker
+              // colors (otherwise only distinguishable by tapping each one),
+              // the static full-trip distance/duration, plus this viewer's
+              // own live progress once the first throttled recalculation
+              // completes (see _maybeRecalculateMyEta).
               if (route != null)
                 Positioned(
                   bottom: 90,
@@ -1038,6 +1040,8 @@ class _MapScreenState extends State<MapScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      _RouteMarkerLegend(hasStops: route.waypoints.isNotEmpty),
+                      const SizedBox(height: 6),
                       _RouteInfoChip(
                         icon: Icons.alt_route,
                         label: 'Full route: '
@@ -1100,6 +1104,54 @@ class _RouteInfoChip extends StatelessWidget {
           Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
         ],
       ),
+    );
+  }
+}
+
+/// Legend for the route markers' colors (start point, stops, destination) -
+/// otherwise only distinguishable by tapping each one for its info window.
+/// Colors are pulled from the same hues _buildRouteMarkers uses, so this
+/// can never drift out of sync with the actual marker colors.
+class _RouteMarkerLegend extends StatelessWidget {
+  final bool hasStops;
+
+  const _RouteMarkerLegend({required this.hasStops});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _dot(BitmapDescriptor.hueGreen, 'Start'),
+          if (hasStops) ...[
+            const SizedBox(width: 10),
+            _dot(BitmapDescriptor.hueAzure, 'Stop'),
+          ],
+          const SizedBox(width: 10),
+          _dot(BitmapDescriptor.hueViolet, 'Destination'),
+        ],
+      ),
+    );
+  }
+
+  Widget _dot(double hue, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: colorForMarkerHue(hue), shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),
+      ],
     );
   }
 }

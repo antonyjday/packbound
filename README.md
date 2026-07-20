@@ -30,7 +30,7 @@ position on a shared map for the duration of the trip.
   rest of the stops/destination, rather than straight past it. Opening a group with a
   route set centers the map on its start point first, and a step button
   lets you walk the camera through each stop in order, then the
-  destination, then back to the start.
+  destination, then your own current location, then back to the start.
 - **Offline awareness** — banner when the device loses connectivity.
 
 ## Tech stack
@@ -152,7 +152,8 @@ see [CLEANUP.md](CLEANUP.md).
       starts. Now centers on the route's start point first instead. Added
       a step-through button (top-right, next to roster/re-fit) that walks
       the camera to the first stop, then each subsequent stop, then the
-      destination, then wraps back to the start.
+      destination, then this device's own current location, then wraps
+      back to the start.
 - [x] Fixed: a member's live route/ETA routed straight from their current
       position to the next stop or the destination, skipping the trip's
       start point entirely even if they hadn't reached it yet. The start

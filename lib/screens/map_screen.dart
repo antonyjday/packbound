@@ -60,9 +60,11 @@ class _MapScreenState extends State<MapScreen> {
 
   // Which leg of the route the "step through trip" button last jumped the
   // camera to: -1 means "at the start point", 0..waypoints.length-1 are the
-  // stops in order, and waypoints.length is the destination. Pressing again
-  // advances one leg, wrapping back to -1 after the destination. Reset to
-  // -1 whenever the route itself changes (see the group-doc listener).
+  // stops in order, waypoints.length is the destination, and
+  // waypoints.length + 1 is this device's own current location. Pressing
+  // again advances one leg, wrapping back to -1 after that final "my
+  // location" step. Reset to -1 whenever the route itself changes (see the
+  // group-doc listener).
   int _routeStepIndex = -1;
 
   // How close to a waypoint counts as "arrived" for the purposes of the
@@ -659,24 +661,47 @@ class _MapScreenState extends State<MapScreen> {
 
   /// Advances the "step through trip" button one leg: first press lands on
   /// the first stop (or the destination directly, if there are no stops),
-  /// each subsequent press moves to the next one, and pressing again after
-  /// the destination wraps back around to the start point.
-  void _stepThroughRoute(RoutePlan route) {
+  /// each subsequent press moves to the next one, pressing again after the
+  /// destination jumps to this device's own current location (if it has
+  /// one - see [_myLocation]), and pressing once more wraps back around to
+  /// the start point.
+  void _stepThroughRoute(RoutePlan route, List<LocationPoint> points) {
     final legs = _routeLegsAfterStart(route);
+    final myLocationIndex = legs.length; // one past the destination
     final nextIndex = _routeStepIndex + 1;
-    setState(() => _routeStepIndex = nextIndex >= legs.length ? -1 : nextIndex);
-    final target = _routeStepIndex == -1 ? route.origin : legs[_routeStepIndex];
+    setState(() => _routeStepIndex = nextIndex > myLocationIndex ? -1 : nextIndex);
+
+    final RouteStop? target;
+    if (_routeStepIndex == -1) {
+      target = route.origin;
+    } else if (_routeStepIndex < legs.length) {
+      target = legs[_routeStepIndex];
+    } else {
+      target = _myLocation(points);
+    }
+    if (target == null) return; // "my location" step, but no location yet
     _mapController?.animateCamera(
       CameraUpdate.newLatLngZoom(LatLng(target.lat, target.lng), 15),
     );
+  }
+
+  /// This device's own current position from the live locations stream, if
+  /// it's sharing one yet - used by the "step through trip" button's final
+  /// "my location" leg.
+  RouteStop? _myLocation(List<LocationPoint> points) {
+    final mine = points.where((p) => p.userId == _authService.uid);
+    if (mine.isEmpty) return null;
+    return RouteStop(lat: mine.first.lat, lng: mine.first.lng);
   }
 
   /// Describes what the *next* press of the step button will do, so the
   /// tooltip reflects the upcoming jump rather than the current position.
   String _nextRouteStepLabel(RoutePlan route) {
     final legs = _routeLegsAfterStart(route);
+    final myLocationIndex = legs.length;
     final nextIndex = _routeStepIndex + 1;
-    if (nextIndex >= legs.length) return 'Back to start';
+    if (nextIndex > myLocationIndex) return 'Back to start';
+    if (nextIndex == myLocationIndex) return 'Jump to your location';
     return nextIndex == legs.length - 1
         ? 'Jump to destination'
         : 'Jump to stop ${nextIndex + 1}';
@@ -902,15 +927,16 @@ class _MapScreenState extends State<MapScreen> {
               ),
 
               // Steps the camera through the trip: start point, then each
-              // stop in order, then the destination, then wraps back to
-              // the start - see _stepThroughRoute.
+              // stop in order, then the destination, then this device's own
+              // current location, then wraps back to the start - see
+              // _stepThroughRoute.
               if (route != null)
                 Positioned(
                   top: 12,
                   right: 124,
                   child: FloatingActionButton.small(
                     heroTag: 'stepRoute',
-                    onPressed: () => _stepThroughRoute(route),
+                    onPressed: () => _stepThroughRoute(route, points),
                     tooltip: _nextRouteStepLabel(route),
                     child: const Icon(Icons.skip_next),
                   ),

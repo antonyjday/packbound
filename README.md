@@ -325,6 +325,17 @@ see [CLEANUP.md](CLEANUP.md).
       joining fresh. The read rule now also allows any signed-in user to
       read (only) their own potential doc regardless of whether it
       exists yet. Deployed to the live project.
+- [x] Gave the map screen more room, in a few steps, tested on-device after
+      each: the route info stack (marker legend, full-route chip, "you"
+      chip) now lays out left-to-right in landscape via a `Wrap` instead of
+      staying stacked top-to-bottom (the landscape gap called out below);
+      that stack also moved from spanning the bottom of the map to sitting
+      beside the location-sharing button, tightened up, and - in portrait -
+      bottom-aligned with the Google Maps zoom-out button rather than the
+      location button; the app bar shrank from the default 56 to 40 with
+      tightened action buttons; and the persistent purple "You're the
+      owner of this trip" banner was replaced with a compact star + "Owner"
+      label inline in the app bar, next to the menu button.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -337,9 +348,6 @@ see [CLEANUP.md](CLEANUP.md).
       before shipping a release build.
 
 **Known gaps / follow-ups called out in the code:**
-- [ ] In landscape orientation, the bottom-left route info stack (marker
-      legend, full-route chip, "you" chip) should lay out left-to-right
-      instead of stacked top-to-bottom, since vertical space is scarcer.
 - [ ] Route search/autocomplete — setting a destination is currently
       tap-on-the-map only. Address search would need the Places API enabled
       (separate billing surface from Directions/Maps SDK) - deferred for now.

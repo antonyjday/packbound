@@ -148,6 +148,13 @@ class _MapScreenState extends State<MapScreen> {
   static const earlyWarningLead = Duration(hours: 4);
   static const finalWarningLead = Duration(hours: 1);
 
+  // The owner-only "Extend trip 24h" menu item only makes sense once the
+  // trip is actually getting close to its hard-cap deadline - offering it
+  // any time the trip hasn't ended let an owner "extend" a trip that
+  // already had e.g. 20h left, which is really just a confusing way to
+  // reset the warning banners early rather than anything meaningful.
+  static const extendEligibleLead = Duration(hours: 12);
+
   @override
   void initState() {
     super.initState();
@@ -1277,14 +1284,16 @@ class _MapScreenState extends State<MapScreen> {
             },
             itemBuilder: (context) => [
               if (_isOwner && !_groupEnded) ...[
-                const PopupMenuItem(
-                  value: 'extend',
-                  child: ListTile(
-                    leading: Icon(Icons.update),
-                    title: Text('Extend trip 24h'),
-                    contentPadding: EdgeInsets.zero,
+                if (_timeUntilExpiry != null &&
+                    _timeUntilExpiry! <= extendEligibleLead)
+                  const PopupMenuItem(
+                    value: 'extend',
+                    child: ListTile(
+                      leading: Icon(Icons.update),
+                      title: Text('Extend trip 24h'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
-                ),
                 const PopupMenuItem(
                   value: 'end',
                   child: ListTile(

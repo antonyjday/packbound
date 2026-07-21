@@ -395,6 +395,18 @@ see [CLEANUP.md](CLEANUP.md).
       after routing all camera moves through the new `_animateCamera`
       wrapper. A real device's GPS reports genuine speed/heading, so both
       features should engage normally there.
+- [x] Gated the owner-only "Extend trip 24h" menu item to only appear once
+      under 12h remain (`extendEligibleLead` in `map_screen.dart`), instead
+      of being offered any time the trip hasn't ended. Also verified
+      end-to-end (previously just a code-inspection claim) that
+      `GroupService.extendTrip` genuinely resets `tripExpiresAt` to 24h
+      from the moment of the button press rather than compounding onto
+      whatever time was already left: tapped it for real (temporarily
+      raising the threshold to exercise the button, then reverting)
+      against a group with ~23.5h already left, and confirmed via a direct
+      Firestore read that the new deadline landed at exactly
+      tap-time + 24h, not old-deadline + 24h (which would have been ~48h
+      out).
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -407,16 +419,6 @@ see [CLEANUP.md](CLEANUP.md).
       before shipping a release build.
 
 **Known gaps / follow-ups called out in the code:**
-- [ ] Verify `GroupService.extendTrip` actually refreshes `tripExpiresAt` to
-      24h from the button press rather than compounding onto whatever time
-      was already left (the code and its doc comment claim the former -
-      measured from `DateTime.now()`, not the old deadline - but this
-      hasn't been exercised end-to-end). Separately, the owner-only
-      "Extend trip 24h" menu item in the app bar (`map_screen.dart`) is
-      available any time the trip hasn't ended, with no regard for how much
-      time is actually left - it should only be offered once under 12h
-      remain, rather than letting an owner "extend" a trip that already has
-      e.g. 20h left.
 - [ ] Invite codes aren't checked for collision at creation -
       `GroupService._generateInviteCode` picks 6 random chars (~1.29B
       combinations) but `createGroup` never queries Firestore for an

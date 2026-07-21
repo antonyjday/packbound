@@ -40,9 +40,12 @@ position on a shared map for the duration of the trip.
   planned trip (start point, waypoints, destination) alongside this
   device's own location; a route created/changed after that instead
   focuses the camera on just its new start point. A separate step button
+  (flag icon, distinct from the arrow-style skip-ahead button next to it)
   lets you walk the camera (not your actual route) through each stop in
   order, then the destination, then
-  your own current location, then back to the start.
+  your own current location, then back to the start. A dedicated "My
+  location" button jumps the camera straight to your own current position
+  on demand, separately from follow-mode.
 - **Turn-by-turn navigation** — a satnav-style bar at the top of the map
   showing your next maneuver (icon + instruction, e.g. "Turn left onto Elm
   St") and a live "in 0.3 mi" countdown. The instruction list comes from
@@ -407,6 +410,28 @@ see [CLEANUP.md](CLEANUP.md).
       Firestore read that the new deadline landed at exactly
       tap-time + 24h, not old-deadline + 24h (which would have been ~48h
       out).
+- [x] `createGroup` now checks a freshly generated invite code against
+      other *active* groups before writing (`GroupService._generateUniqueInviteCode`,
+      retrying up to 5 times) - previously it never checked at all,
+      meaning `joinGroupByInviteCode`'s `.limit(1)` lookup could
+      non-deterministically route a joiner to the wrong group in the
+      astronomically unlikely event two active groups collided. Verified
+      end-to-end by seeding a real colliding active group in Firestore,
+      temporarily forcing the generator to draw that exact code on its
+      first call, and confirming the app's own "Create group" flow
+      retried and returned a different, uncollided code rather than the
+      seeded one.
+- [x] Made the trip-camera buttons clearer: the "step through trip" button
+      now uses a flag icon (`Icons.tour`) instead of `Icons.skip_next`,
+      which read as a near-duplicate of the "skip ahead" button's
+      fast-forward/restore arrows right next to it. Also added a dedicated
+      "My location" button (`Icons.my_location`) that jumps the camera
+      straight to this device's own position on demand - distinct from
+      both the "fit everyone" refit button and follow-mode (which only
+      re-centers automatically while moving): unlike every other manual
+      camera button, it deliberately does *not* pause follow-mode
+      afterward, since recentering on yourself is exactly what follow-mode
+      already does.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -419,18 +444,6 @@ see [CLEANUP.md](CLEANUP.md).
       before shipping a release build.
 
 **Known gaps / follow-ups called out in the code:**
-- [ ] Invite codes aren't checked for collision at creation -
-      `GroupService._generateInviteCode` picks 6 random chars (~1.29B
-      combinations) but `createGroup` never queries Firestore for an
-      existing match before writing. If two simultaneously *active* groups
-      ever did collide, `joinGroupByInviteCode`'s `where('inviteCode', ...)
-      .limit(1)` query could route a joiner to the wrong group.
-      Astronomically unlikely at current scale, but worth a
-      check-and-retry loop before this sees real traffic - unlike group/user
-      display names (confirmed not an issue: every lookup and comparison in
-      the app uses Firebase UIDs or Firestore doc IDs, never a name), an
-      invite code collision would actually bite since it's used as a
-      lookup key.
 - [ ] Route search/autocomplete — setting a destination is currently
       tap-on-the-map only. Address search would need the Places API enabled
       (separate billing surface from Directions/Maps SDK) - deferred for now.

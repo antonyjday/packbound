@@ -18,6 +18,28 @@ class GroupService {
         .join();
   }
 
+  /// Generates an invite code and confirms no other *active* group is
+  /// already using it before returning - `joinGroupByInviteCode`'s lookup
+  /// only ever matches against active groups, so that's the only scope a
+  /// collision could actually bite in (an ended group reusing a code is
+  /// harmless). At ~1.29B possible codes a real collision is astronomically
+  /// unlikely, but it costs one cheap query to rule out rather than let
+  /// `joinGroupByInviteCode`'s `.limit(1)` non-deterministically route a
+  /// joiner into the wrong group if it ever did happen.
+  Future<String> _generateUniqueInviteCode({int maxAttempts = 5}) async {
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      final code = _generateInviteCode();
+      final collision = await _db
+          .collection('groups')
+          .where('inviteCode', isEqualTo: code)
+          .where('status', isEqualTo: 'active')
+          .limit(1)
+          .get();
+      if (collision.docs.isEmpty) return code;
+    }
+    throw Exception('Could not generate a unique invite code - please try again');
+  }
+
   /// Creates a new convoy group and adds the creator as owner.
   Future<ConvoyGroup> createGroup({
     required String name,
@@ -25,7 +47,7 @@ class GroupService {
     Duration inviteValidFor = const Duration(hours: 24),
   }) async {
     final groupRef = _db.collection('groups').doc();
-    final inviteCode = _generateInviteCode();
+    final inviteCode = await _generateUniqueInviteCode();
     final expiresAt =
         Timestamp.fromDate(DateTime.now().add(inviteValidFor));
 

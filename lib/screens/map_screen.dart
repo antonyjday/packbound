@@ -1152,6 +1152,23 @@ class _MapScreenState extends State<MapScreen> {
     return RouteStop(lat: mine.first.lat, lng: mine.first.lng);
   }
 
+  /// Jumps the camera straight to this device's own current position right
+  /// away, on demand - unlike follow-mode (_maybeFollowMe), which only
+  /// re-centers automatically while actually moving. Deliberately does NOT
+  /// call _registerManualCameraOverride(): every *other* manual camera
+  /// button looks somewhere other than "wherever I am" for a while (fit
+  /// everyone, someone else's marker, another stop), so they pause
+  /// follow-mode to protect that view - this button's whole point is
+  /// showing this device's own position, exactly what follow-mode already
+  /// wants, so there's nothing for a pause to protect.
+  void _recenterOnMe(List<LocationPoint> points) {
+    final target = _myLocation(points);
+    if (target == null) return;
+    _animateCamera(
+      CameraUpdate.newLatLngZoom(LatLng(target.lat, target.lng), 16),
+    );
+  }
+
   /// Describes what the *next* press of the step button will do, so the
   /// tooltip reflects the upcoming jump rather than the current position.
   String _nextRouteStepLabel(RoutePlan route) {
@@ -1573,19 +1590,34 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ),
 
+                    // Jumps straight to this device's own current position -
+                    // see _recenterOnMe.
+                    Positioned(
+                      top: 12,
+                      right: 124,
+                      child: FloatingActionButton.small(
+                        heroTag: 'recenterOnMe',
+                        onPressed: () => _recenterOnMe(points),
+                        tooltip: 'My location',
+                        child: const Icon(Icons.my_location),
+                      ),
+                    ),
+
                     // Steps the camera through the trip: start point, then each
                     // stop in order, then the destination, then this device's own
                     // current location, then wraps back to the start - see
-                    // _stepThroughRoute.
+                    // _stepThroughRoute. A distinct pin/flag-style icon
+                    // (rather than another arrow glyph) so it doesn't read as
+                    // a near-duplicate of the skip-ahead button below.
                     if (route != null)
                       Positioned(
                         top: 12,
-                        right: 124,
+                        right: 180,
                         child: FloatingActionButton.small(
                           heroTag: 'stepRoute',
                           onPressed: () => _stepThroughRoute(route, points),
                           tooltip: _nextRouteStepLabel(route),
-                          child: const Icon(Icons.skip_next),
+                          child: const Icon(Icons.tour),
                         ),
                       ),
 
@@ -1600,7 +1632,7 @@ class _MapScreenState extends State<MapScreen> {
                     if (route != null)
                       Positioned(
                         top: 12,
-                        right: 180,
+                        right: 236,
                         child: FloatingActionButton.small(
                           heroTag: 'skipRouteLeg',
                           onPressed: () => _toggleSkipRouteLeg(route, points),

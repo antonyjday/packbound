@@ -51,9 +51,27 @@ class DirectionsService {
     final legs = route['legs'] as List;
     int distanceMeters = 0;
     int durationSeconds = 0;
+    final steps = <RouteStep>[];
     for (final leg in legs) {
       distanceMeters += (leg['distance']['value'] as num).toInt();
       durationSeconds += (leg['duration']['value'] as num).toInt();
+      for (final step in leg['steps'] as List) {
+        final start = step['start_location'] as Map<String, dynamic>;
+        final end = step['end_location'] as Map<String, dynamic>;
+        steps.add(RouteStep(
+          instruction: _stripHtml(step['html_instructions'] as String),
+          maneuver: step['maneuver'] as String?,
+          distanceMeters: (step['distance']['value'] as num).toInt(),
+          startLocation: RouteStop(
+            lat: (start['lat'] as num).toDouble(),
+            lng: (start['lng'] as num).toDouble(),
+          ),
+          endLocation: RouteStop(
+            lat: (end['lat'] as num).toDouble(),
+            lng: (end['lng'] as num).toDouble(),
+          ),
+        ));
+      }
     }
 
     return RoutePlan(
@@ -63,6 +81,18 @@ class DirectionsService {
       polyline: route['overview_polyline']['points'],
       distanceMeters: distanceMeters,
       durationSeconds: durationSeconds,
+      steps: steps,
     );
   }
+
+  // The legacy Directions API's html_instructions are simple markup (mostly
+  // <b> around street names, occasionally a <div> for a "toward X" aside) -
+  // strip tags and the handful of entities Google actually emits, rather
+  // than pulling in a full HTML parser for this.
+  static String _stripHtml(String html) => html
+      .replaceAll(RegExp(r'<[^>]*>'), ' ')
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll('&amp;', '&')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 }

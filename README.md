@@ -43,6 +43,27 @@ position on a shared map for the duration of the trip.
   lets you walk the camera (not your actual route) through each stop in
   order, then the destination, then
   your own current location, then back to the start.
+- **Turn-by-turn navigation** — a satnav-style bar at the top of the map
+  showing your next maneuver (icon + instruction, e.g. "Turn left onto Elm
+  St") and a live "in 0.3 mi" countdown. The instruction list comes from
+  the same throttled per-device Directions call that already powers your
+  personal ETA/route line, but which turn is "next" and its distance
+  countdown are recomputed on every location update from simple proximity
+  geometry - no extra API calls - so it keeps feeling live between those
+  throttled refreshes. Own-device only, like the rest of your personal
+  ETA/route. Instructions are phrased relative to *your* current heading,
+  not compass direction - the Directions API itself only gives compass
+  wording ("Head east on...") for a leg's very first step, since it has no
+  prior direction to turn relative to yet; this app fills that gap from
+  live GPS heading instead (e.g. heading south and needing to head east
+  next reads "Turn left", not "Head east") - but only once moving fast
+  enough for heading to be trustworthy, otherwise it falls back to the
+  API's own wording.
+- **Camera follow-mode** — the map re-centers on your own position while
+  you're moving, satnav-style. Any manual look-elsewhere - dragging the
+  map, picking someone from the roster, stepping through the trip's
+  stops, or the owner setting a new route - pauses it for 30 seconds
+  before it resumes following.
 - **Offline awareness** — banner when the device loses connectivity.
 
 ## Tech stack
@@ -355,6 +376,25 @@ see [CLEANUP.md](CLEANUP.md).
       as the headless one before joining, and a new `ensureSignedIn` step
       automates the name-entry screen when present (re-reading the UI
       layout after typing, since the on-screen keyboard shifts it).
+- [x] Added the turn-by-turn navigation bar and camera follow-mode
+      described above. `DirectionsService` now parses each step's
+      instruction/maneuver/distance/start+end location (previously it only
+      kept the overall polyline/distance/duration); `RouteStep` and the new
+      `lib/utils/navigation_progress.dart` (nextNavigationStep,
+      classifyTurnManeuver, relabelHeadInstruction, maneuverIcon) are
+      covered by `test/utils/navigation_progress_test.dart`, since the
+      Android emulator's mock GPS (`adb emu geo fix` and `geo nmea` both,
+      confirmed via `dumpsys location`) never actually reports a nonzero
+      speed/bearing in this environment - `geo gnss` exists but needs raw
+      satellite pseudorange data, not a usable substitute - so the
+      heading-relative relabeling and follow-mode's "am I moving" check
+      couldn't be exercised live and were instead verified by dedicated
+      unit tests covering the classification boundaries directly. Manually
+      confirmed live: the nav bar itself renders/updates correctly, and the
+      camera-jump regressions (step-through, roster select) still work
+      after routing all camera moves through the new `_animateCamera`
+      wrapper. A real device's GPS reports genuine speed/heading, so both
+      features should engage normally there.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

@@ -13,6 +13,7 @@ import '../services/directions_service.dart';
 import '../services/group_service.dart';
 import '../services/location_service.dart';
 import '../utils/member_colors.dart';
+import '../utils/navigation_progress.dart';
 import '../utils/polyline_codec.dart';
 import '../utils/route_progress.dart';
 import 'location_permission_screen.dart';
@@ -37,6 +38,21 @@ class _MapScreenState extends State<MapScreen> {
   bool _isOwner = false;
   GoogleMapController? _mapController;
 
+  // True while an animateCamera call *we* triggered is still in flight -
+  // lets the GoogleMap's onCameraMoveStarted callback tell our own
+  // programmatic moves (auto-fit, follow-mode, step-through, ...) apart
+  // from the user actually dragging/pinching the map themselves, since
+  // both fire the same callback. Set right before every animateCamera call
+  // (see _animateCamera) and cleared again in onCameraIdle.
+  bool _programmaticCameraMove = false;
+
+  // While set (and not yet in the past), follow-mode below won't move the
+  // camera - sees the user picked a specific view (dragged the map,
+  // opened the roster and jumped to someone, stepped through the trip)
+  // and gives it 30s before snapping back to auto-following this device's
+  // own position. See _registerManualCameraOverride/_maybeFollowMe.
+  DateTime? _cameraOverrideUntil;
+
   // The group's shared trip plan, synced live from the group doc (same
   // listener as trip-expiry below). Null if the owner hasn't set one.
   RoutePlan? _route;
@@ -55,6 +71,13 @@ class _MapScreenState extends State<MapScreen> {
   // so each viewer sees their own remaining path, not just the route as it
   // looked from the owner's position when they set it.
   String? _myRoutePolyline;
+
+  // This viewer's own turn-by-turn instructions to the destination, from
+  // the same throttled Directions call as the ETA/route line above - see
+  // _maybeRecalculateMyEta. Which one is "next" is recomputed live on every
+  // location tick (cheap local geometry, no extra API calls) rather than
+  // waiting for the next throttled recalculation - see nextNavigationStep.
+  List<RouteStep> _myRouteSteps = [];
   bool _etaCalcInFlight = false;
   DateTime? _lastEtaCalcAt;
   RouteStop? _lastEtaCalcPosition;
@@ -173,6 +196,7 @@ class _MapScreenState extends State<MapScreen> {
                 _myEtaDuration = null;
                 _myEtaRemainingStops = 0;
                 _myRoutePolyline = null;
+                _myRouteSteps = [];
                 _lastEtaCalcAt = null;
                 _lastEtaCalcPosition = null;
                 _routeStepIndex = -1;
@@ -358,6 +382,62 @@ class _MapScreenState extends State<MapScreen> {
         ],
       ),
     );
+  }
+
+  /// Turn-by-turn instruction bar - the current maneuver plus a live
+  /// countdown to it, satnav-style. [distanceMeters] is this device's
+  /// current distance to the step's endpoint, recomputed fresh on every
+  /// rebuild (see the StreamBuilder above), not throttled like the step
+  /// list itself. [text]/[icon] are already resolved by the caller (see
+  /// classifyTurnManeuver/relabelHeadInstruction/maneuverIcon in
+  /// navigation_progress.dart) since which one applies depends on this
+  /// device's live heading, not just the step itself.
+  Widget _buildNavigationBar(String text, IconData icon, double distanceMeters) {
+    return Container(
+      width: double.infinity,
+      color: Colors.blue.shade900,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white, size: 32),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _formatStepDistance(distanceMeters),
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+                Text(
+                  text,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Feet close-up (rounded to the nearest 50ft, like real satnav apps),
+  // miles once far enough out that sub-mile precision isn't useful.
+  String _formatStepDistance(double meters) {
+    final feet = meters * 3.28084;
+    if (feet < 1000) {
+      final roundedFeet = (feet / 50).round() * 50;
+      return 'In $roundedFeet ft';
+    }
+    final miles = meters / 1609.34;
+    return 'In ${miles.toStringAsFixed(1)} mi';
   }
 
   /// Reacts to this device's own membership doc, live: keeps `_isOwner` in
@@ -711,6 +791,7 @@ class _MapScreenState extends State<MapScreen> {
             _myEtaDuration = Duration(seconds: result.durationSeconds);
             _myEtaRemainingStops = legsToGo.length;
             _myRoutePolyline = result.polyline;
+            _myRouteSteps = result.steps;
           });
         })
         .catchError((_) {
@@ -892,6 +973,51 @@ class _MapScreenState extends State<MapScreen> {
     }).toSet();
   }
 
+  /// Every camera move this screen makes on its own (as opposed to the user
+  /// dragging/pinching the map themselves) should go through here rather
+  /// than calling `_mapController.animateCamera` directly - it flags the
+  /// move as programmatic first so the GoogleMap's onCameraMoveStarted
+  /// callback below doesn't mistake it for a manual interaction and (for
+  /// no reason) pause follow-mode - see _maybeFollowMe.
+  void _animateCamera(CameraUpdate update) {
+    _programmaticCameraMove = true;
+    _mapController?.animateCamera(update);
+  }
+
+  /// Pauses follow-mode for 30s - called wherever the user deliberately
+  /// picks a different view than "wherever I am right now": dragging the
+  /// map (see onCameraMoveStarted below), opening the roster and jumping
+  /// to someone else, or stepping through the trip's stops. Follow-mode
+  /// resumes on its own once the 30s elapses, as long as this device is
+  /// still moving - see _maybeFollowMe.
+  void _registerManualCameraOverride() {
+    _cameraOverrideUntil = DateTime.now().add(const Duration(seconds: 30));
+  }
+
+  /// Re-centers the camera on this device's own position while it's
+  /// actually moving (satnav-style "follow me"), unless a manual camera
+  /// override is still in its 30s window - see _registerManualCameraOverride.
+  /// Only kicks in after the initial join view has already happened
+  /// (_hasAutoFitted), same gating as the rest of this screen's camera
+  /// logic, and only moves the camera's *position*, not its zoom, so it
+  /// doesn't fight whatever zoom level the user has chosen.
+  void _maybeFollowMe(List<LocationPoint> points) {
+    if (_mapController == null || !_hasAutoFitted) return;
+
+    final overrideUntil = _cameraOverrideUntil;
+    if (overrideUntil != null) {
+      if (DateTime.now().isBefore(overrideUntil)) return;
+      _cameraOverrideUntil = null; // 30s elapsed - resume following
+    }
+
+    final mine = points.where((p) => p.userId == _authService.uid);
+    if (mine.isEmpty) return;
+    final me = mine.first;
+    if (me.speed < movingSpeedThresholdMps) return; // not moving - stay put
+
+    _animateCamera(CameraUpdate.newLatLng(LatLng(me.lat, me.lng)));
+  }
+
   /// Fits the camera to show every *actively tracked* member marker (members
   /// whose signal is `lost` are excluded so a phone that's been off for
   /// hours doesn't drag the zoom/pan out to include a stale pin - they still
@@ -924,7 +1050,7 @@ class _MapScreenState extends State<MapScreen> {
     if (lats.isEmpty) return; // nothing to frame - leave camera as-is
 
     if (lats.length == 1) {
-      _mapController!.animateCamera(
+      _animateCamera(
         CameraUpdate.newLatLngZoom(LatLng(lats.first, lngs.first), 14),
       );
       return;
@@ -937,7 +1063,7 @@ class _MapScreenState extends State<MapScreen> {
 
     // Padding keeps markers from sitting flush against screen edges/UI
     // chrome (roster button, share button, offline banner).
-    _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
+    _animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
   }
 
   void _maybeAutoFit(List<LocationPoint> points) {
@@ -959,8 +1085,14 @@ class _MapScreenState extends State<MapScreen> {
   /// listener when a route is created/changed after this device's initial
   /// join view has already happened (see _hasAutoFitted there). Not used
   /// for the initial view itself; that's _fitCameraToPoints instead.
+  /// Also gets follow-mode's 30s grace period (_registerManualCameraOverride)
+  /// even though nobody clicked anything - otherwise, if this device happens
+  /// to already be moving, follow-mode could re-center back onto it again
+  /// within a few seconds and undo this "look, the route changed" cue
+  /// almost as soon as it appears.
   void _focusOnRouteStart(RoutePlan route) {
-    _mapController?.animateCamera(
+    _registerManualCameraOverride();
+    _animateCamera(
       CameraUpdate.newLatLngZoom(
         LatLng(route.origin.lat, route.origin.lng),
         15,
@@ -998,7 +1130,8 @@ class _MapScreenState extends State<MapScreen> {
       target = _myLocation(points);
     }
     if (target == null) return; // "my location" step, but no location yet
-    _mapController?.animateCamera(
+    _registerManualCameraOverride();
+    _animateCamera(
       CameraUpdate.newLatLngZoom(LatLng(target.lat, target.lng), 15),
     );
   }
@@ -1037,7 +1170,8 @@ class _MapScreenState extends State<MapScreen> {
           isOwner: _isOwner,
           onSelect: (p) {
             Navigator.pop(context);
-            _mapController?.animateCamera(
+            _registerManualCameraOverride();
+            _animateCamera(
               CameraUpdate.newLatLngZoom(LatLng(p.lat, p.lng), 15),
             );
           },
@@ -1229,6 +1363,7 @@ class _MapScreenState extends State<MapScreen> {
           final points = snapshot.data ?? [];
           _checkForStatusTransitions(points);
           _maybeAutoFit(points);
+          _maybeFollowMe(points);
           _maybeRecalculateMyEta(points);
           final route = _route;
           // Includes this device's own uid even if it isn't in `points` yet
@@ -1271,8 +1406,68 @@ class _MapScreenState extends State<MapScreen> {
               .length;
           final expiryBanner = _buildExpiryBanner();
 
+          // Next turn-by-turn instruction, if any - recomputed fresh from
+          // wherever this device currently is on every rebuild (cheap local
+          // geometry against the steps already fetched by the last
+          // throttled recalculation), so the "in Xm" countdown keeps
+          // updating between recalculations rather than only refreshing
+          // every 2 minutes/300m like the steps themselves do.
+          String? navInstructionText;
+          IconData? navInstructionIcon;
+          double? navDistanceMeters;
+          final mine = points.where((p) => p.userId == _authService.uid);
+          if (_myRouteSteps.isNotEmpty && mine.isNotEmpty) {
+            final myLocation = mine.first;
+            final myPos = RouteStop(lat: myLocation.lat, lng: myLocation.lng);
+            final nextStep = nextNavigationStep(myPos, _myRouteSteps);
+            if (nextStep != null) {
+              navDistanceMeters = Geolocator.distanceBetween(
+                myPos.lat,
+                myPos.lng,
+                nextStep.endLocation.lat,
+                nextStep.endLocation.lng,
+              );
+
+              // The API only omits `maneuver` for its "Head <compass
+              // direction> on/toward X" steps - relabel those relative to
+              // this device's own heading instead (see
+              // classifyTurnManeuver), but only while actually moving fast
+              // enough for that heading to be trustworthy; otherwise fall
+              // back to the API's own (still perfectly fine) wording.
+              if (nextStep.maneuver == null &&
+                  myLocation.speed >= movingSpeedThresholdMps) {
+                final stepBearing = Geolocator.bearingBetween(
+                  nextStep.startLocation.lat,
+                  nextStep.startLocation.lng,
+                  nextStep.endLocation.lat,
+                  nextStep.endLocation.lng,
+                );
+                final syntheticManeuver = classifyTurnManeuver(
+                  myLocation.heading,
+                  stepBearing,
+                );
+                navInstructionText =
+                    relabelHeadInstruction(nextStep.instruction, syntheticManeuver);
+                navInstructionIcon = maneuverIcon(syntheticManeuver);
+              } else {
+                navInstructionText = nextStep.instruction;
+                navInstructionIcon = maneuverIcon(nextStep.maneuver);
+              }
+            }
+          }
+
           return Column(
             children: [
+              // Turn-by-turn instruction bar - above the offline/trip-expiry
+              // banners below, since it's the most immediately actionable
+              // info while actually driving, same placement satnav apps use.
+              if (navInstructionText != null)
+                _buildNavigationBar(
+                  navInstructionText,
+                  navInstructionIcon!,
+                  navDistanceMeters!,
+                ),
+
               // Top banners - offline warning and/or trip-expiry warning,
               // stacked so neither overlaps the other. In normal in-flow
               // layout (not overlaid on the map via Positioned) so they push
@@ -1324,6 +1519,17 @@ class _MapScreenState extends State<MapScreen> {
                         // arrived (e.g. slow device) - fit immediately in that case.
                         _maybeAutoFit(points);
                       },
+                      // Distinguishes the user dragging/pinching the map
+                      // themselves from a move *we* triggered (both fire
+                      // onCameraMoveStarted) - see _animateCamera. A real
+                      // manual drag pauses follow-mode for 30s, same as
+                      // picking a roster member or stepping through the trip.
+                      onCameraMoveStarted: () {
+                        if (!_programmaticCameraMove) {
+                          _registerManualCameraOverride();
+                        }
+                      },
+                      onCameraIdle: () => _programmaticCameraMove = false,
                       myLocationEnabled: true,
                     ),
 
@@ -1350,7 +1556,10 @@ class _MapScreenState extends State<MapScreen> {
                       right: 68,
                       child: FloatingActionButton.small(
                         heroTag: 'refit',
-                        onPressed: () => _fitCameraToPoints(points),
+                        onPressed: () {
+                          _registerManualCameraOverride();
+                          _fitCameraToPoints(points);
+                        },
                         child: const Icon(Icons.center_focus_strong),
                       ),
                     ),

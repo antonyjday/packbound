@@ -1447,7 +1447,7 @@ class _MapScreenState extends State<MapScreen> {
                                 label:
                                     'You: '
                                     '${_formatDistanceDuration(_myEtaDistanceMeters!.round(), _myEtaDuration!.inSeconds)}'
-                                    ' to destination'
+                                    ' to end'
                                     '${_myEtaRemainingStops > 0 ? ' ($_myEtaRemainingStops stop${_myEtaRemainingStops == 1 ? '' : 's'} left)' : ''}',
                               ),
                           ],
@@ -1493,6 +1493,10 @@ class _RouteInfoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      // Caps how wide this chip can grow - otherwise a long label (e.g. a
+      // 3-digit mile count plus a stop count) can stretch far enough right
+      // to sit under the Google Maps zoom-out button in the corner.
+      constraints: const BoxConstraints(maxWidth: 220),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.black87,
@@ -1503,9 +1507,13 @@ class _RouteInfoChip extends StatelessWidget {
         children: [
           Icon(icon, color: Colors.white, size: 16),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
           ),
         ],
       ),

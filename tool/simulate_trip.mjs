@@ -230,7 +230,7 @@ async function joinAndDiscoverMember(serial, groupId, inviteCode, knownUids, pol
     `convoy://join/${inviteCode}`,
     PACKAGE,
   );
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 40; i++) {
     await sleep(1500);
     const res = await fsRequest('GET', `groups/${groupId}/members`, { token: pollToken });
     const ids = (res.documents || []).map((d) => docIdFromName(d.name));
@@ -278,6 +278,53 @@ async function ensureSharingStarted(serial, label) {
     }
   }
   throw new Error(`Could not confirm sharing started on ${serial} (${label})`);
+}
+
+// Finds the first-run "Your name" sign-in screen via the accessibility tree,
+// same approach as dumpFabState above. Only present on a device that's
+// never completed Convoy's anonymous sign-in before (e.g. a freshly
+// created AVD/emulator) - a device with a persisted session (like the
+// visible emulator, reused across manual test sessions) goes straight to
+// HomeScreen instead, so this returns null there.
+async function dumpSignInState(serial) {
+  adb(serial, 'shell', 'uiautomator', 'dump', '/sdcard/window_dump.xml');
+  const xml = adb(serial, 'shell', 'cat', '/sdcard/window_dump.xml');
+  const field = xml.match(
+    /class="android\.widget\.EditText"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/,
+  );
+  const button = xml.match(
+    /content-desc="Continue"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/,
+  );
+  if (!field || !button) return null;
+  const mid = (m) => ({
+    cx: Math.round((Number(m[1]) + Number(m[3])) / 2),
+    cy: Math.round((Number(m[2]) + Number(m[4])) / 2),
+  });
+  return { field: mid(field), button: mid(button) };
+}
+
+async function ensureSignedIn(serial, name, label) {
+  const initial = await dumpSignInState(serial);
+  if (!initial) return; // already past sign-in (persisted session)
+
+  adb(serial, 'shell', 'input', 'tap', String(initial.field.cx), String(initial.field.cy));
+  await sleep(500);
+  adb(serial, 'shell', 'input', 'text', name);
+  await sleep(500);
+
+  // Re-dump rather than reusing `initial`'s button bounds - the on-screen
+  // keyboard appearing shifts the whole column up, so the button's actual
+  // position now differs from where it was before the field was focused.
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const state = await dumpSignInState(serial);
+    if (!state) {
+      console.log(`  ${label}: signed in`);
+      return;
+    }
+    adb(serial, 'shell', 'input', 'tap', String(state.button.cx), String(state.button.cy));
+    await sleep(2000);
+  }
+  throw new Error(`Could not get past sign-in on ${serial} (${label})`);
 }
 
 // ---- Main -------------------------------------------------------------------
@@ -357,7 +404,34 @@ async function main() {
   });
   console.log(`  route set (${(routeDistanceMeters / 1609.34).toFixed(2)} mi, ~${Math.round(routeDurationSeconds / 60)} min)`);
 
-  console.log('\nJoining the visible emulator via deep link...');
+  console.log(`\nInstalling latest app build on ${VISIBLE_SERIAL}...`);
+  // Always reinstall here too (not just on the headless emulator below) -
+  // otherwise this just re-runs whatever build happened to already be on
+  // the visible device, silently hiding fixes that landed since it was last
+  // installed there. `-r` keeps the emulator's existing app data/session
+  // (including any previously-granted runtime permissions), but the
+  // package manager still force-stops the running process to replace the
+  // APK, so the deep link below is effectively a cold start - pre-grant
+  // location/notifications first in case this device has never run the
+  // app before, same reasoning as the headless emulator further down.
+  adb(VISIBLE_SERIAL, 'install', '-r', APK_PATH);
+  adb(VISIBLE_SERIAL, 'shell', 'pm', 'grant', PACKAGE, 'android.permission.ACCESS_FINE_LOCATION');
+  adb(VISIBLE_SERIAL, 'shell', 'pm', 'grant', PACKAGE, 'android.permission.ACCESS_COARSE_LOCATION');
+  try {
+    adb(VISIBLE_SERIAL, 'shell', 'pm', 'grant', PACKAGE, 'android.permission.ACCESS_BACKGROUND_LOCATION');
+  } catch (_) {}
+  try {
+    adb(VISIBLE_SERIAL, 'shell', 'pm', 'grant', PACKAGE, 'android.permission.POST_NOTIFICATIONS');
+  } catch (_) {}
+
+  // Cold-launch explicitly (rather than relying on the deep link intent
+  // below to also happen to launch it) so there's a settled HomeScreen (or
+  // first-run sign-in screen) to inspect before firing the join link.
+  adb(VISIBLE_SERIAL, 'shell', 'am', 'start', '-n', `${PACKAGE}/.MainActivity`);
+  await sleep(6000);
+  await ensureSignedIn(VISIBLE_SERIAL, 'Traveler1', 'T1');
+
+  console.log('Joining the visible emulator via deep link...');
   const t1Uid = await joinAndDiscoverMember(VISIBLE_SERIAL, groupId, inviteCode, new Set([t0.uid]), t0.token);
   console.log(`  T1 uid ${t1Uid} joined on ${VISIBLE_SERIAL}`);
 
@@ -380,6 +454,7 @@ async function main() {
   } catch (_) {} // no-op below API 33
   adb(headlessSerial, 'shell', 'am', 'start', '-n', `${PACKAGE}/.MainActivity`);
   await sleep(6000);
+  await ensureSignedIn(headlessSerial, 'Traveler2', 'T2');
   console.log('  joining via deep link...');
   const t2Uid = await joinAndDiscoverMember(headlessSerial, groupId, inviteCode, new Set([t0.uid, t1Uid]), t0.token);
   console.log(`  T2 uid ${t2Uid} joined on ${headlessSerial}`);

@@ -336,6 +336,25 @@ see [CLEANUP.md](CLEANUP.md).
       tightened action buttons; and the persistent purple "You're the
       owner of this trip" banner was replaced with a compact star + "Owner"
       label inline in the app bar, next to the menu button.
+- [x] Fixed the "you" ETA chip (bottom-right route info stack) growing wide
+      enough to sit under Google Maps' own zoom-out button when its label
+      got long (long distance + duration + a remaining-stop count) - it's
+      now capped at 220px wide with ellipsis truncation, and the label
+      itself was shortened from "to destination" to "to end".
+- [x] Hardened `tool/simulate_trip.mjs` (the manual multi-participant
+      simulation script) after running it end-to-end for the first time
+      surfaced two gaps: it only ever reinstalled the debug APK on the
+      headless second emulator, so the visible emulator silently kept
+      running whatever build happened to already be on it (this is what
+      made the zoom-control overlap above look like a live app bug rather
+      than a stale install); and it had no handling for a real first-run
+      sign-in screen (a brand-new emulator/AVD has no persisted anonymous
+      Firebase session), so a fresh headless emulator's deep-link join
+      would just time out sitting on that screen. Both fixed: the visible
+      emulator now gets the same `adb install -r` + permission pre-grants
+      as the headless one before joining, and a new `ensureSignedIn` step
+      automates the name-entry screen when present (re-reading the UI
+      layout after typing, since the on-screen keyboard shifts it).
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

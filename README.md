@@ -564,6 +564,25 @@ see [CLEANUP.md](CLEANUP.md).
       crash loop this session, so the foreground SnackBar path is only
       verified by code inspection/pattern-matching against the already-
       proven signal-lost/back-online SnackBar, not a live screenshot).
+- [x] Fixed the shared route's drawn polyline cutting corners on long
+      trips (reported: a 1400-mile cross-continental trip's turn-by-turn
+      banner was correct but the drawn line looked rough/imprecise when
+      zoomed in). Root cause: `DirectionsService` built the drawn polyline
+      from the Directions API response's `overview_polyline` - a
+      deliberately simplified/smoothed path, fine for a short hop but only
+      1274 characters for a real ~1100mi test route, vs. ~195,000
+      characters across that same route's per-step polylines (each step
+      already being parsed anyway, for the turn-by-turn instructions -
+      just not its own `polyline` field). Now decodes and concatenates
+      every step's own polyline instead of using the coarse overview one,
+      added `encodePolyline` (the reverse of the existing `decodePolyline`)
+      to re-encode the combined precise path back into the single stored
+      polyline string, with 3 new tests (94 Dart tests total). Verified
+      against real Directions API data first (confirmed the 1274 vs
+      ~195,000 character gap on an actual London→Rome route), then live
+      on-device: saved that same London→Rome route and confirmed the
+      drawn line now precisely hugs a road's curve (Victoria Embankment
+      near Charing Cross) rather than approximating across it.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

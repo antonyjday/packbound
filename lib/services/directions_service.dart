@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import '../models/route_plan.dart';
+import '../utils/polyline_codec.dart';
 
 /// Calls the (legacy) Directions API to turn an origin/destination/ordered
 /// waypoints into an actual driving route. Used once, on the setting device,
@@ -52,6 +54,9 @@ class DirectionsService {
     int distanceMeters = 0;
     int durationSeconds = 0;
     final steps = <RouteStep>[];
+    // Built from each step's own polyline rather than the response's
+    // overview_polyline - see encodePolyline's doc comment for why.
+    final precisePoints = <LatLng>[];
     for (final leg in legs) {
       distanceMeters += (leg['distance']['value'] as num).toInt();
       durationSeconds += (leg['duration']['value'] as num).toInt();
@@ -71,6 +76,7 @@ class DirectionsService {
             lng: (end['lng'] as num).toDouble(),
           ),
         ));
+        precisePoints.addAll(decodePolyline(step['polyline']['points'] as String));
       }
     }
 
@@ -78,7 +84,7 @@ class DirectionsService {
       origin: origin,
       destination: destination,
       waypoints: waypoints,
-      polyline: route['overview_polyline']['points'],
+      polyline: encodePolyline(precisePoints),
       distanceMeters: distanceMeters,
       durationSeconds: durationSeconds,
       steps: steps,

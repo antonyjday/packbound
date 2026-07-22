@@ -482,3 +482,16 @@ see [CLEANUP.md](CLEANUP.md).
 - [ ] `applicationId`/bundle ID are still the Flutter-generated
       `com.example.convoy.*` — rename before publishing to either app store.
 - [ ] No app icon / launch screen customization — using Flutter defaults.
+
+**Future feature ideas (not started):**
+- [ ] In-app group voice call — a button to join a live audio call with
+      everyone currently in the convoy. A genuinely new capability class
+      (live media), not an extension of anything currently in the app.
+      Realistic path: a managed service (LiveKit, Agora, etc.) via its
+      Flutter SDK, with a small Cloud Function to mint join tokens and a
+      join/leave/mute UI (~3-5 days) - handles multi-party audio mixing
+      and NAT traversal for you, at the cost of a per-minute-billed
+      vendor dependency. Raw WebRTC with Firestore as a signaling channel
+      avoids that vendor but needs a self-hosted TURN server and hits a
+      real quality ceiling past ~4-6 simultaneous speakers (mesh
+      topology), for meaningfully more effort and ongoing ops burden.

@@ -96,6 +96,7 @@ lib/
   screens/      sign-in, home, map, invite, QR scan, permission explainer
   services/     auth, group, location, deep-link
 functions/      Cloud Functions — group expiry/cleanup (see CLEANUP.md)
+firestore-tests/ firestore.rules test suite (Node, against the real emulator)
 ```
 
 ## Getting started
@@ -514,6 +515,28 @@ see [CLEANUP.md](CLEANUP.md).
       (mocked-Firestore tests don't enforce actual security rules, so
       they can't catch the class of bug that motivated this in the first
       place).
+- [x] Added a `firestore.rules` test suite (`firestore-tests/`, 38 tests)
+      against the real Firestore emulator via
+      `@firebase/rules-unit-testing` - a separate Node project from
+      `functions/` (this tests the rules themselves, not the Cloud
+      Functions) using Node's built-in test runner rather than adding a
+      new framework dependency. Run with:
+      `firebase emulators:exec --only firestore "cd firestore-tests && npm test"`
+      from the repo root (needs `npm install` in `firestore-tests/`
+      first, and Java 21+ for the emulator itself - this environment only
+      had Java 17 installed for the Android toolchain, so Temurin 21 was
+      installed alongside it via `winget`). Covers every branch of every
+      rule: the `users` doc read/write split, `groups`' create/delete/
+      update including the narrow ownerless-ownership-claim exception
+      (accepted only when it touches *just* `ownerId` and the group was
+      actually ownerless; rejected if it touches other fields, claims
+      ownership for someone else, or the group already has an owner),
+      and the full `members`/`locations` matrices - including a
+      regression test for the exact chicken-and-egg member-read fix from
+      earlier (a non-member can read their own not-yet-existing member
+      doc, but not anyone else's). This is what the mocked-Firestore
+      service-layer tests above structurally can't do, since a fake
+      Firestore doesn't evaluate `firestore.rules` at all.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

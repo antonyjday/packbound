@@ -1,0 +1,15 @@
+{
+  "name": "firestore-rules-tests",
+  "description": "Security-rules test suite for firestore.rules, run against the real Firestore emulator - separate from the Dart service-layer tests (test/services/), which use a mocked Firestore that doesn't enforce rules at all.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4"
+  }
+}

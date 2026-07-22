@@ -1862,8 +1862,13 @@ class _RouteInfoChip extends StatelessWidget {
     return Container(
       // Caps how wide this chip can grow - otherwise a long label (e.g. a
       // 3-digit mile count plus a stop count) can stretch far enough right
-      // to sit under the Google Maps zoom-out button in the corner.
-      constraints: const BoxConstraints(maxWidth: 220),
+      // to sit under the Google Maps zoom-out button in the corner. Wider
+      // than it used to be: that corner was more cramped back when the
+      // location-sharing button also lived at the bottom of the screen -
+      // now that it's moved to the top (see map_screen's top-left button
+      // row), there's more room to use before actually reaching the zoom
+      // controls.
+      constraints: const BoxConstraints(maxWidth: 300),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.black87,

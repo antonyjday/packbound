@@ -583,6 +583,15 @@ see [CLEANUP.md](CLEANUP.md).
       on-device: saved that same London→Rome route and confirmed the
       drawn line now precisely hugs a road's curve (Victoria Embankment
       near Charing Cross) rather than approximating across it.
+- [x] Widened the bottom-left route-info chips (`_RouteInfoChip`'s
+      `maxWidth`, 220 -> 300) now that they have more room to work with -
+      the container itself was already widened when the location-sharing
+      button moved to the top (see above), but the chips' own per-chip cap
+      (unrelated, originally sized to avoid the Google Maps zoom-out
+      button specifically) was still the actual limiter, so they weren't
+      using the freed-up space. Verified live: the "You: ... to end (1
+      stop left)" chip on a long route now shows in full with no
+      ellipsis, with a comfortable gap before the zoom +/- controls.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

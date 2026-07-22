@@ -45,7 +45,10 @@ position on a shared map for the duration of the trip.
   order, then the destination, then
   your own current location, then back to the start. A dedicated "My
   location" button jumps the camera straight to your own current position
-  on demand, separately from follow-mode.
+  on demand, separately from follow-mode. A search bar above these mode
+  chips finds real addresses/places as you type (Places API) - picking a
+  result sets whichever point the current mode means and jumps the map
+  there, same as tapping the map itself would.
 - **Turn-by-turn navigation** — a satnav-style bar at the top of the map
   showing your next maneuver (icon + instruction, e.g. "Turn left onto Elm
   St") and a live "in 0.3 mi" countdown. The instruction list comes from
@@ -432,6 +435,22 @@ see [CLEANUP.md](CLEANUP.md).
       camera button, it deliberately does *not* pause follow-mode
       afterward, since recentering on yourself is exactly what follow-mode
       already does.
+- [x] Added route search/autocomplete (`PlacesService`, new
+      `lib/models/place_suggestion.dart`), via the Places API (New) -
+      same bespoke REST-call style as `DirectionsService` rather than
+      pulling in a places-picker package, and same Android-restricted
+      Maps key, now also allow-listed for this API. Uses a real session
+      token (`PlacesService.newSessionToken`) shared across one search's
+      autocomplete keystrokes and its eventual place-details lookup, since
+      Google bills that as a single session rather than per-request.
+      Getting this live took two Google Cloud setup steps beyond just
+      writing the code: enabling "Places API (New)" for the project
+      wasn't enough on its own - the Maps API key also had an API
+      restrictions allowlist that needed "Places API (New)" added to it
+      separately (same class of gotcha as the earlier Maps SHA-1
+      restriction issue). Verified end-to-end on-device once both were
+      done: typed "London", picked a suggestion, and confirmed the
+      destination pin landed exactly on central London.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -444,9 +463,6 @@ see [CLEANUP.md](CLEANUP.md).
       before shipping a release build.
 
 **Known gaps / follow-ups called out in the code:**
-- [ ] Route search/autocomplete — setting a destination is currently
-      tap-on-the-map only. Address search would need the Places API enabled
-      (separate billing surface from Directions/Maps SDK) - deferred for now.
 - [ ] Custom URL scheme (`convoy://`) only works if the app is already
       installed. Upgrading to a universal/app link
       (`https://yourdomain.com/join/CODE`) would let invites degrade

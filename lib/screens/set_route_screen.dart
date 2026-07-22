@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/group.dart';
+import '../models/place_suggestion.dart';
 import '../models/route_plan.dart';
 import '../services/directions_service.dart';
 import '../services/group_service.dart';
 import '../services/location_service.dart';
+import '../services/places_service.dart';
 import 'location_permission_screen.dart';
 
 enum _TapMode { origin, destination, stop }
@@ -32,6 +35,7 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
   final _locationService = LocationService();
   final _groupService = GroupService();
   final _directionsService = DirectionsService();
+  final _placesService = PlacesService();
 
   // Roughly fits a 50mi radius around the center point on a phone screen -
   // keeps the initial view scoped to a plausible destination range instead
@@ -45,6 +49,15 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
   List<RouteStop> _waypoints = [];
   bool _saving = false;
   late final Future<CameraPosition> _initialCameraFuture;
+  GoogleMapController? _mapController;
+  RouteStop? _cameraBiasCenter; // roughly where the map's currently looking - see _resolveNearbyCamera
+
+  final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
+  Timer? _searchDebounce;
+  String? _searchSessionToken;
+  List<PlaceSuggestion> _suggestions = [];
+  bool _searching = false;
 
   @override
   void initState() {
@@ -58,13 +71,24 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
       _startingPoint = initial.origin;
       _destination = initial.destination;
       _waypoints = List.of(initial.waypoints);
+      _cameraBiasCenter = initial.destination;
       _initialCameraFuture = Future.value(CameraPosition(
         target: LatLng(initial.destination.lat, initial.destination.lng),
         zoom: 12,
       ));
     } else {
-      _initialCameraFuture = _resolveNearbyCamera();
+      _initialCameraFuture = _resolveNearbyCamera()
+        ..then((camera) => _cameraBiasCenter =
+            RouteStop(lat: camera.target.latitude, lng: camera.target.longitude));
     }
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
   }
 
   // Actively fetches a fresh position rather than relying on
@@ -92,16 +116,90 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
   }
 
   void _onMapTap(LatLng point) {
+    _setPointForCurrentMode(RouteStop(lat: point.latitude, lng: point.longitude));
+  }
+
+  /// Sets whichever point the current Start/Destination/Add-stop mode
+  /// means right now - shared by both tapping the map and picking a
+  /// search suggestion, so the two input methods behave identically.
+  void _setPointForCurrentMode(RouteStop point) {
     setState(() {
       switch (_mode) {
         case _TapMode.origin:
-          _startingPoint = RouteStop(lat: point.latitude, lng: point.longitude);
+          _startingPoint = point;
         case _TapMode.destination:
-          _destination = RouteStop(lat: point.latitude, lng: point.longitude);
+          _destination = point;
         case _TapMode.stop:
-          _waypoints = [..._waypoints, RouteStop(lat: point.latitude, lng: point.longitude)];
+          _waypoints = [..._waypoints, point];
       }
     });
+  }
+
+  void _onSearchChanged(String input) {
+    _searchDebounce?.cancel();
+    if (input.trim().isEmpty) {
+      setState(() => _suggestions = []);
+      return;
+    }
+    // A fresh session token once a search starts from empty, reused for
+    // every keystroke's autocomplete call and the eventual details lookup
+    // - see PlacesService.newSessionToken.
+    _searchSessionToken ??= _placesService.newSessionToken();
+
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () async {
+      setState(() => _searching = true);
+      try {
+        final results = await _placesService.autocomplete(
+          input,
+          sessionToken: _searchSessionToken!,
+          biasCenter: _cameraBiasCenter,
+        );
+        if (mounted) setState(() => _suggestions = results);
+      } catch (_) {
+        // A failed autocomplete call is a nice-to-have miss, not worth an
+        // error toast mid-typing - the user can just keep typing or fall
+        // back to tapping the map.
+        if (mounted) setState(() => _suggestions = []);
+      } finally {
+        if (mounted) setState(() => _searching = false);
+      }
+    });
+  }
+
+  Future<void> _selectSuggestion(PlaceSuggestion suggestion) async {
+    final sessionToken = _searchSessionToken;
+    setState(() {
+      _suggestions = [];
+      _searchController.clear();
+      _searchSessionToken = null; // done with this search session
+    });
+    _searchFocusNode.unfocus();
+
+    try {
+      final point = await _placesService.resolvePlace(
+        suggestion.placeId,
+        sessionToken: sessionToken ?? _placesService.newSessionToken(),
+      );
+      _setPointForCurrentMode(point);
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(point.lat, point.lng), 15),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
+  String _searchHintForMode() {
+    switch (_mode) {
+      case _TapMode.origin:
+        return 'Search for a starting point';
+      case _TapMode.destination:
+        return 'Search for a destination';
+      case _TapMode.stop:
+        return 'Search for a stop';
+    }
   }
 
   void _clearStartingPoint() => setState(() => _startingPoint = null);
@@ -235,29 +333,112 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
                       initialCameraPosition: startCamera,
                       onTap: _onMapTap,
                       markers: _buildMarkers(),
+                      onMapCreated: (c) => _mapController = c,
                     ),
                     Positioned(
                       top: 12,
                       left: 12,
                       right: 12,
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          ChoiceChip(
-                            label: const Text('Start'),
-                            selected: _mode == _TapMode.origin,
-                            onSelected: (_) => setState(() => _mode = _TapMode.origin),
+                          Material(
+                            elevation: 3,
+                            borderRadius: BorderRadius.circular(28),
+                            child: TextField(
+                              controller: _searchController,
+                              focusNode: _searchFocusNode,
+                              onChanged: _onSearchChanged,
+                              decoration: InputDecoration(
+                                hintText: _searchHintForMode(),
+                                prefixIcon: const Icon(Icons.search),
+                                suffixIcon: _searching
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(14),
+                                        child: SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                      )
+                                    : (_searchController.text.isEmpty
+                                        ? null
+                                        : IconButton(
+                                            icon: const Icon(Icons.clear),
+                                            onPressed: () {
+                                              _searchController.clear();
+                                              _searchDebounce?.cancel();
+                                              setState(() {
+                                                _suggestions = [];
+                                                _searchSessionToken = null;
+                                              });
+                                            },
+                                          )),
+                                filled: true,
+                                fillColor: Colors.white,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(28),
+                                  borderSide: BorderSide.none,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                            ),
                           ),
-                          const SizedBox(width: 8),
-                          ChoiceChip(
-                            label: const Text('Destination'),
-                            selected: _mode == _TapMode.destination,
-                            onSelected: (_) => setState(() => _mode = _TapMode.destination),
-                          ),
-                          const SizedBox(width: 8),
-                          ChoiceChip(
-                            label: const Text('Add stop'),
-                            selected: _mode == _TapMode.stop,
-                            onSelected: (_) => setState(() => _mode = _TapMode.stop),
+                          if (_suggestions.isNotEmpty)
+                            Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              constraints: const BoxConstraints(maxHeight: 260),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).cardColor,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: const [
+                                  BoxShadow(color: Colors.black26, blurRadius: 6),
+                                ],
+                              ),
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                padding: EdgeInsets.zero,
+                                itemCount: _suggestions.length,
+                                separatorBuilder: (_, _) => const Divider(height: 1),
+                                itemBuilder: (context, index) {
+                                  final s = _suggestions[index];
+                                  return ListTile(
+                                    dense: true,
+                                    leading: const Icon(Icons.location_on_outlined),
+                                    title: Text(s.primaryText),
+                                    subtitle: s.secondaryText == null
+                                        ? null
+                                        : Text(
+                                            s.secondaryText!,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                    onTap: () => _selectSuggestion(s),
+                                  );
+                                },
+                              ),
+                            ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              ChoiceChip(
+                                label: const Text('Start'),
+                                selected: _mode == _TapMode.origin,
+                                onSelected: (_) => setState(() => _mode = _TapMode.origin),
+                              ),
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                label: const Text('Destination'),
+                                selected: _mode == _TapMode.destination,
+                                onSelected: (_) => setState(() => _mode = _TapMode.destination),
+                              ),
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                label: const Text('Add stop'),
+                                selected: _mode == _TapMode.stop,
+                                onSelected: (_) => setState(() => _mode = _TapMode.stop),
+                              ),
+                            ],
                           ),
                         ],
                       ),

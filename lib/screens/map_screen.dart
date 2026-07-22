@@ -1559,6 +1559,26 @@ class _MapScreenState extends State<MapScreen> {
                       myLocationEnabled: true,
                     ),
 
+                    // Top-left, in-line with the roster/refit/recenter/step/skip
+                    // row on the right - was bottom-left, but grouping every
+                    // trip control along the same top row is clearer than
+                    // splitting them across two corners.
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: FloatingActionButton.small(
+                        heroTag: 'toggleSharing',
+                        onPressed: _toggleSharing,
+                        backgroundColor: _sharing ? Colors.red : Colors.deepOrange,
+                        tooltip: _sharing
+                            ? 'Stop sharing my location'
+                            : 'Start sharing my location',
+                        child: Icon(
+                          _sharing ? Icons.location_off : Icons.location_on,
+                        ),
+                      ),
+                    ),
+
                     // Roster button - badges with a count if anyone's signal is lost
                     Positioned(
                       top: 12,
@@ -1650,17 +1670,15 @@ class _MapScreenState extends State<MapScreen> {
                     // the static full-trip distance/duration, plus this viewer's
                     // own live progress once the first throttled recalculation
                     // completes (see _maybeRecalculateMyEta). Anchored to the
-                    // right of the location-sharing button (56px wide, at
-                    // left: 24) rather than spanning the bottom of the map, to
-                    // leave more of the map itself visible. Stacked top-to-bottom
-                    // in portrait, but laid out left-to-right in landscape, where
-                    // vertical space is scarcer - a Wrap (rather than a plain Row)
-                    // still falls back to wrapping onto a second line instead of
-                    // overflowing off-screen if all three don't fit on one. In
-                    // portrait, the stack sits lower (bottom: 4 instead of 24) so
-                    // its bottom edge lines up with the Google Maps zoom-out
-                    // button in the opposite corner, rather than with the
-                    // location-sharing button - landscape keeps 24 since the zoom
+                    // bottom of the map (not spanning it) to leave more of the
+                    // map itself visible. Stacked top-to-bottom in portrait, but
+                    // laid out left-to-right in landscape, where vertical space
+                    // is scarcer - a Wrap (rather than a plain Row) still falls
+                    // back to wrapping onto a second line instead of overflowing
+                    // off-screen if all three don't fit on one. In portrait, the
+                    // stack sits lower (bottom: 4 instead of 24) so its bottom
+                    // edge lines up with the Google Maps zoom-out button in the
+                    // opposite corner - landscape keeps 24 since the zoom
                     // controls sit differently there.
                     if (route != null)
                       Positioned(
@@ -1669,7 +1687,7 @@ class _MapScreenState extends State<MapScreen> {
                                 Orientation.landscape
                             ? 24
                             : 4,
-                        left: 92,
+                        left: 24,
                         right: 24,
                         child: Wrap(
                           direction:
@@ -1704,25 +1722,6 @@ class _MapScreenState extends State<MapScreen> {
                         ),
                       ),
 
-                    // Bottom-left, not bottom-right, so it doesn't sit under the
-                    // Google Maps zoom controls the SDK draws in that corner.
-                    Positioned(
-                      bottom: 24,
-                      left: 24,
-                      child: FloatingActionButton(
-                        heroTag: 'toggleSharing',
-                        onPressed: _toggleSharing,
-                        backgroundColor: _sharing
-                            ? Colors.red
-                            : Colors.deepOrange,
-                        tooltip: _sharing
-                            ? 'Stop sharing my location'
-                            : 'Start sharing my location',
-                        child: Icon(
-                          _sharing ? Icons.location_off : Icons.location_on,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),

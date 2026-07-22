@@ -13,7 +13,8 @@ position on a shared map for the duration of the trip.
 - **Background location sharing** — keeps reporting position while the app is
   minimized (Android foreground service / iOS background location mode).
   Starts automatically as soon as you open a group's map (still shown as a
-  small toggle button if you want to pause it).
+  small toggle button, top-left alongside the other trip controls, if you
+  want to pause it).
 - **Trip lifecycle** — groups get a 24h hard-cap expiry (extendable by the
   owner), auto-end after 10h of inactivity, and get an in-app 4h/1h warning
   banner as the deadline approaches. Ended groups have their live location
@@ -451,6 +452,12 @@ see [CLEANUP.md](CLEANUP.md).
       restriction issue). Verified end-to-end on-device once both were
       done: typed "London", picked a suggestion, and confirmed the
       destination pin landed exactly on central London.
+- [x] Moved the location-sharing toggle from bottom-left to top-left, in
+      line with the roster/refit/recenter/step/skip row on the right -
+      grouping every trip control along one row reads more clearly than
+      splitting them across two corners. The route-info chip stack at the
+      bottom, previously indented (`left: 92`) to leave room for the
+      button that used to sit there, now starts flush at `left: 24` too.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

@@ -4,8 +4,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// Handles user identity. Anonymous auth is enough for a convoy app -
 /// no email/password friction needed, but each device gets a stable uid.
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseAuth _auth;
+  final FirebaseFirestore _db;
+
+  // Defaults to the real Auth/Firestore singletons - tests inject fakes
+  // instead (see test/services/auth_service_test.dart).
+  AuthService({FirebaseAuth? auth, FirebaseFirestore? firestore})
+      : _auth = auth ?? FirebaseAuth.instance,
+        _db = firestore ?? FirebaseFirestore.instance;
 
   User? get currentUser => _auth.currentUser;
   String? get uid => _auth.currentUser?.uid;

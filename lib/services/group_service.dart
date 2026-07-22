@@ -4,7 +4,12 @@ import '../models/group.dart';
 import '../models/route_plan.dart';
 
 class GroupService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _db;
+
+  // Defaults to the real Firestore singleton - tests inject a fake instead
+  // (see test/services/group_service_test.dart).
+  GroupService({FirebaseFirestore? firestore})
+      : _db = firestore ?? FirebaseFirestore.instance;
 
   // Mirrors functions/src/config.ts TRIP_LIFETIME_HOURS / EXTENSION_HOURS.
   // Keep these in sync if you change the server-side thresholds.

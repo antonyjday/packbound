@@ -70,6 +70,11 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+  # Service-layer test mocking - fake in-memory Firestore/Auth so
+  # GroupService/AuthService can be tested without a real Firebase project.
+  fake_cloud_firestore: ^3.1.0
+  firebase_auth_mocks: ^0.14.1
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

@@ -170,10 +170,10 @@ see [CLEANUP.md](CLEANUP.md).
       marker hues), and `RouteStop`/`RoutePlan` map round-tripping.
       Deliberately scoped to logic with no Firebase dependency for now -
       `GroupService`/`AuthService` (need `fake_cloud_firestore` +
-      `firebase_auth_mocks` + `mocktail` mocking) and `firestore.rules`
-      itself (needs the emulator + `@firebase/rules-unit-testing`, a
-      separate Node test suite - the only thing that would've caught the
-      group-creation batch/rules bug from earlier) are follow-ups below.
+      `firebase_auth_mocks` mocking) and `firestore.rules` itself (needs
+      the emulator + `@firebase/rules-unit-testing`, a separate Node test
+      suite - the only thing that would've caught the group-creation
+      batch/rules bug from earlier) are follow-ups below.
 - [x] Updated tests for the route/lifecycle features added in the other
       session (46 tests total now). Along the way, extracted `MapScreen`'s
       private `_remainingLegs` into a standalone, testable
@@ -492,6 +492,28 @@ see [CLEANUP.md](CLEANUP.md).
       (temporarily lowering the sweep interval/threshold to make the
       already-stale test doc trigger immediately, reverted after) watched
       "Signal lost" land the same way.
+- [x] Added `GroupService`/`AuthService` tests (25 tests, 89 total now) -
+      the Firebase-dependent half deferred from the first test batch
+      above. Needed `GroupService`/`AuthService` to accept an optional
+      injected `FirebaseFirestore`/`FirebaseAuth` instance (defaulting to
+      the real singletons, so every existing call site is unaffected) so
+      tests can hand them a `fake_cloud_firestore`/`firebase_auth_mocks`
+      instance instead. Covers `createGroup`, the full
+      `joinGroupByInviteCode` matrix (fresh join, ownerless-group
+      inheritance, expired/invalid codes, ended-group codes) including
+      regression tests for the two real bugs fixed earlier this project
+      (re-entering your own invite code demoting you from owner; the
+      members-read chicken-and-egg permission issue that fix caused),
+      `leaveGroup`'s successor-promotion and ownerless-clearing paths,
+      `removeMember`, and `extendTrip`'s reset-not-compound behavior.
+      `mocktail` was pulled in as a dependency for this but ended up
+      unused - `fake_cloud_firestore`/`firebase_auth_mocks` covered
+      everything needed, so it was removed again rather than left
+      unused. The remaining half of the original TODO - a `firestore.rules`
+      test suite against the real emulator - is still open, see below
+      (mocked-Firestore tests don't enforce actual security rules, so
+      they can't catch the class of bug that motivated this in the first
+      place).
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -510,9 +532,11 @@ see [CLEANUP.md](CLEANUP.md).
       gracefully for people who don't have the app yet — needs a real domain
       and hosting `.well-known/apple-app-site-association` /
       `assetlinks.json`. See PLATFORM_SETUP.md for details.
-- [ ] Service-layer tests (`GroupService`, `AuthService`) with mocked
-      Firestore/Auth, and a separate Firestore-rules test suite against the
-      emulator - see the "Done" note above.
+- [ ] A separate `firestore.rules` test suite against the emulator (needs
+      `@firebase/rules-unit-testing`, a Node test suite distinct from the
+      Dart ones) - the only thing that would've caught the
+      group-creation batch/rules bug from earlier, since mocked-Firestore
+      service tests (see "Done" above) don't enforce real security rules.
 - [ ] `applicationId`/bundle ID are still the Flutter-generated
       `com.example.convoy.*` — rename before publishing to either app store.
 - [ ] No app icon / launch screen customization — using Flutter defaults.

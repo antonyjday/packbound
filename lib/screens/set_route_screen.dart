@@ -137,7 +137,10 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
 
   void _onSearchChanged(String input) {
     _searchDebounce?.cancel();
-    if (input.trim().isEmpty) {
+    // A 1-character prefix matches almost everything and is nearly always
+    // followed by more typing before the user looks at results - skip the
+    // billed autocomplete call until there's enough to narrow things down.
+    if (input.trim().length < 2) {
       setState(() => _suggestions = []);
       return;
     }

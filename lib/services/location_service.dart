@@ -53,7 +53,7 @@ class LocationService {
       return AndroidSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: distanceFilterMeters,
-        intervalDuration: const Duration(seconds: 3),
+        intervalDuration: const Duration(seconds: 6),
         // Keeps location updates alive when the app is backgrounded by
         // running as a foreground service with a persistent notification -
         // required on Android 9+ for reliable background tracking.
@@ -82,12 +82,15 @@ class LocationService {
 
   /// Starts pushing this device's position to
   /// groups/{groupId}/locations/{userId} on every significant movement.
-  /// distanceFilter controls update frequency vs. battery use.
+  /// distanceFilter controls update frequency vs. battery use - it also
+  /// directly drives Firestore billing, since every write here is read by
+  /// every other member's live listener (cost scales as writes * (members
+  /// - 1)), so this is deliberately looser than "as live as possible".
   Future<void> startSharing({
     required String groupId,
     required String userId,
     required String displayName,
-    int distanceFilterMeters = 10,
+    int distanceFilterMeters = 25,
   }) async {
     final ok = await ensurePermission();
     if (!ok) {

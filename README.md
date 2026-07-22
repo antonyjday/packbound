@@ -592,6 +592,17 @@ see [CLEANUP.md](CLEANUP.md).
       using the freed-up space. Verified live: the "You: ... to end (1
       stop left)" chip on a long route now shows in full with no
       ellipsis, with a comfortable gap before the zoom +/- controls.
+- [x] API billing efficiency pass. Directions and Places were already
+      well-throttled (2min/300m gate on live ETA recalcs, 350ms debounce +
+      session tokens + a minimal field mask on autocomplete); the real
+      lever was Firestore: `LocationService.startSharing`'s position stream
+      wrote on every 10m/3s movement, and since every other member has a
+      live listener on that subcollection, cost scales as writes ×
+      (members − 1) — the single biggest volume driver on a long multi-
+      member trip. Loosened to 25m/6s (imperceptible for a convoy's pace,
+      given ETA already only recalculates every 2 minutes regardless).
+      Also added a 2-character minimum before firing autocomplete, to skip
+      billed calls on prefixes too short to be useful.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

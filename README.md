@@ -72,6 +72,12 @@ position on a shared map for the duration of the trip.
   stops, or the owner setting a new route - pauses it for 30 seconds
   before it resumes following.
 - **Offline awareness** — banner when the device loses connectivity.
+- **Proactive push notifications** — the rest of the group gets a push
+  (not just an in-app banner) when a member's location hasn't updated in
+  5+ minutes ("Signal lost"), or when a member reaches the trip's
+  destination ("Arrived"), so nobody has to be staring at the map to
+  notice. Server-side (Cloud Functions), so it fires even if the app is
+  backgrounded or killed.
 
 ## Tech stack
 
@@ -458,6 +464,34 @@ see [CLEANUP.md](CLEANUP.md).
       splitting them across two corners. The route-info chip stack at the
       bottom, previously indented (`left: 92`) to leave room for the
       button that used to sit there, now starts flush at `left: 24` too.
+- [x] Added the two proactive push notifications described above
+      (`functions/src/index.ts`): `notifyLostSignals` is a scheduled sweep
+      (every 5 min) using a `collectionGroup('locations')` query across
+      every group at once - a location doc surviving at all implies its
+      group is still active, since `cleanupEndedGroupData` already wipes
+      a group's locations the moment it ends, so no per-group status
+      check is needed. `notifyOnArrival` is a plain Firestore trigger on
+      the same `locations/{userId}` writes `trackGroupActivity` already
+      reacts to. Both write a marker on the location doc tied to the
+      value that would change if the condition should fire again
+      (`signalLostNotifiedForUpdatedAt` compared against the location's
+      own `updatedAt`; `arrivedNotifiedForRouteSetAt` compared against
+      the group's `route.setAt`) rather than a plain boolean, so a fresh
+      location update or a new route naturally re-arms the check without
+      a separate "reset" pass. `sendExpiryWarningPush`'s token-fetching
+      was extracted into a shared `sendPushToGroupMembers` helper both
+      new functions reuse. Needed a new `locations.updatedAt` field
+      override in `firestore.indexes.json` (`queryScope:
+      COLLECTION_GROUP`) for the sweep's query - a composite index
+      wasn't the right tool here; Firestore rejected that with "this
+      index is not necessary, configure using single field index
+      controls" until it was expressed as a field override instead.
+      Verified both live end-to-end on-device: seeded a script-controlled
+      test member's location at the exact destination coordinates and
+      watched the real "Arrived" push land in the notification tray, then
+      (temporarily lowering the sweep interval/threshold to make the
+      already-stale test doc trigger immediately, reverted after) watched
+      "Signal lost" land the same way.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -495,17 +529,6 @@ see [CLEANUP.md](CLEANUP.md).
       avoids that vendor but needs a self-hosted TURN server and hits a
       real quality ceiling past ~4-6 simultaneous speakers (mesh
       topology), for meaningfully more effort and ongoing ops burden.
-- [ ] Proactive push notifications for member state changes - "X's signal
-      has been lost for 5 min" or "X arrived at the destination" - not
-      just the existing ownership-handoff notification. Matters more than
-      most other ideas here for the app's core "don't lose each other"
-      promise, since nobody's staring at the map the whole drive. Already
-      has `firebase_messaging` wired in and a precedent (the ownership
-      notification) to follow; the new part is server-side detection of
-      these transitions (likely a Cloud Function reacting to
-      `locations/{userId}` writes/staleness and `LocationPoint.status`
-      going to `lost`, plus a destination-arrival radius check) rather
-      than anything client-side.
 - [ ] Lightweight in-group communication - even just preset quick-messages
       ("pulling over", "need gas", "lost you") rather than free-text chat
       or the bigger voice-call idea above. Covers most real convoy

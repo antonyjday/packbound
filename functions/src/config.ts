@@ -41,3 +41,21 @@ export const WARNING_SWEEP_SCHEDULE = 'every 15 minutes';
 // How often the permanent-purge sweep runs. This is low-frequency
 // since 30-day-old data isn't time-sensitive to remove promptly.
 export const PURGE_SWEEP_SCHEDULE = 'every 24 hours';
+
+// How long a member's location can go without an update before the rest
+// of the group gets a push about it. Deliberately longer than the
+// in-app "lost" signal status (60s, see LocationPoint.status in the
+// Flutter client) - that's a passive UI color change fine to show
+// eagerly, but a disruptive push notification needs a longer, calmer
+// threshold so a brief tunnel/elevator signal drop doesn't page everyone.
+export const SIGNAL_LOST_NOTIFY_MINUTES = 5;
+
+// How often the signal-lost sweep runs. Detection latency is up to this
+// interval on top of SIGNAL_LOST_NOTIFY_MINUTES itself, so keep it short
+// relative to that threshold.
+export const SIGNAL_LOST_SWEEP_SCHEDULE = 'every 5 minutes';
+
+// How close to the route's destination counts as "arrived" for the
+// arrival push notification. Mirrors waypointArrivalRadiusMeters in the
+// Flutter client's lib/utils/route_progress.dart.
+export const ARRIVAL_RADIUS_METERS = 500;

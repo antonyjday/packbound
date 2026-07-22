@@ -12,6 +12,9 @@ import {
   INACTIVITY_SWEEP_SCHEDULE,
   WARNING_SWEEP_SCHEDULE,
   PURGE_SWEEP_SCHEDULE,
+  SIGNAL_LOST_NOTIFY_MINUTES,
+  SIGNAL_LOST_SWEEP_SCHEDULE,
+  ARRIVAL_RADIUS_METERS,
 } from './config';
 
 initializeApp();
@@ -19,6 +22,57 @@ const db = getFirestore();
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
+const MINUTE_MS = 60 * 1000;
+const EARTH_RADIUS_METERS = 6371000;
+
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(a));
+}
+
+/**
+ * Sends a push notification to every member of a group (optionally
+ * excluding one, e.g. the member the notification is *about* rather than
+ * *for*). Tokens come from `users/{uid}.fcmToken`, written by the
+ * client's NotificationService whenever it has a signed-in user.
+ * Best-effort: a failed/partial send is logged, never thrown, so it
+ * can't abort whatever sweep/trigger called it.
+ */
+async function sendPushToGroupMembers(
+  groupId: string,
+  { title, body, excludeUid }: { title: string; body: string; excludeUid?: string }
+) {
+  try {
+    const membersSnap = await db.collection('groups').doc(groupId).collection('members').get();
+    if (membersSnap.empty) return;
+
+    const memberIds = membersSnap.docs.map((d) => d.id).filter((id) => id !== excludeUid);
+    if (memberIds.length === 0) return;
+
+    const userRefs = memberIds.map((id) => db.collection('users').doc(id));
+    const userDocs = await db.getAll(...userRefs);
+    const tokens = userDocs
+      .map((doc) => doc.get('fcmToken') as string | undefined)
+      .filter((token): token is string => !!token);
+
+    if (tokens.length === 0) return;
+
+    const response = await getMessaging().sendEachForMulticast({
+      tokens,
+      notification: { title, body },
+    });
+    logger.info(
+      `sendPushToGroupMembers: sent to ${response.successCount}/${tokens.length} for group ${groupId}`
+    );
+  } catch (err) {
+    logger.error(`sendPushToGroupMembers: failed for group ${groupId}`, err);
+  }
+}
 
 /**
  * Every time a member writes their location, bump the parent group's
@@ -90,40 +144,14 @@ export const endInactiveGroups = onSchedule(INACTIVITY_SWEEP_SCHEDULE, async () 
  * Pushes a trip-expiry warning to every member of a group (not just the
  * owner) - matches who already sees the in-app banner in MapScreen, where
  * the owner gets an "Extend" action and everyone else is told to ask them.
- * Tokens come from `users/{uid}.fcmToken`, written by the client's
- * NotificationService whenever it has a signed-in user. Best-effort: a
- * failed/partial send is logged, never thrown, so it can't abort the
- * caller's sweep over the rest of the warned groups.
  */
 async function sendExpiryWarningPush(groupId: string, groupName: string, level: number) {
-  try {
-    const membersSnap = await db.collection('groups').doc(groupId).collection('members').get();
-    if (membersSnap.empty) return;
-
-    const userRefs = membersSnap.docs.map((d) => db.collection('users').doc(d.id));
-    const userDocs = await db.getAll(...userRefs);
-    const tokens = userDocs
-      .map((doc) => doc.get('fcmToken') as string | undefined)
-      .filter((token): token is string => !!token);
-
-    if (tokens.length === 0) return;
-
-    const urgent = level === 2;
-    const title = urgent ? 'Trip ending very soon' : 'Trip ending soon';
-    const body = urgent
-      ? `"${groupName}" ends in about ${FINAL_WARNING_LEAD_HOURS}h. Extend it now if you're not done.`
-      : `"${groupName}" ends in about ${EARLY_WARNING_LEAD_HOURS}h. The owner can extend it from the app.`;
-
-    const response = await getMessaging().sendEachForMulticast({
-      tokens,
-      notification: { title, body },
-    });
-    logger.info(
-      `sendExpiryWarningPush: sent to ${response.successCount}/${tokens.length} for group ${groupId}`
-    );
-  } catch (err) {
-    logger.error(`sendExpiryWarningPush: failed for group ${groupId}`, err);
-  }
+  const urgent = level === 2;
+  const title = urgent ? 'Trip ending very soon' : 'Trip ending soon';
+  const body = urgent
+    ? `"${groupName}" ends in about ${FINAL_WARNING_LEAD_HOURS}h. Extend it now if you're not done.`
+    : `"${groupName}" ends in about ${EARLY_WARNING_LEAD_HOURS}h. The owner can extend it from the app.`;
+  await sendPushToGroupMembers(groupId, { title, body });
 }
 
 /**
@@ -238,3 +266,100 @@ export const purgeOldEndedGroups = onSchedule(PURGE_SWEEP_SCHEDULE, async () => 
     groupIds: snap.docs.map((d) => d.id),
   });
 });
+
+/**
+ * Scheduled sweep: finds members whose location hasn't updated in
+ * SIGNAL_LOST_NOTIFY_MINUTES and pushes the rest of their group about it.
+ * Queries across every group's `locations` subcollection at once via a
+ * collection-group query - a location doc surviving at all implies its
+ * group is still active, since cleanupEndedGroupData recursively deletes
+ * a group's locations the moment it ends, so there's no need to
+ * cross-check group status here.
+ *
+ * `signalLostNotifiedForUpdatedAt` (stored on the location doc itself)
+ * tracks which exact `updatedAt` a notification was already sent for -
+ * once the member sends a fresh location update, `updatedAt` moves on
+ * and no longer matches, so a *later* staleness naturally notifies again
+ * without needing a separate "reset on recovery" pass.
+ */
+export const notifyLostSignals = onSchedule(SIGNAL_LOST_SWEEP_SCHEDULE, async () => {
+  const cutoff = Timestamp.fromMillis(Date.now() - SIGNAL_LOST_NOTIFY_MINUTES * MINUTE_MS);
+
+  const staleSnap = await db.collectionGroup('locations').where('updatedAt', '<=', cutoff).get();
+  if (staleSnap.empty) {
+    logger.info('notifyLostSignals: nothing stale');
+    return;
+  }
+
+  let notifiedCount = 0;
+  await Promise.all(
+    staleSnap.docs.map(async (doc) => {
+      const data = doc.data();
+      const updatedAt = data.updatedAt as Timestamp | undefined;
+      if (!updatedAt) return;
+      if (data.signalLostNotifiedForUpdatedAt?.isEqual?.(updatedAt)) return;
+
+      const groupId = doc.ref.parent.parent?.id;
+      if (!groupId) return;
+
+      await doc.ref.update({ signalLostNotifiedForUpdatedAt: updatedAt });
+      await sendPushToGroupMembers(groupId, {
+        title: 'Signal lost',
+        body: `${data.displayName ?? 'A member'}'s location hasn't updated in a while.`,
+        excludeUid: doc.id,
+      });
+      notifiedCount++;
+    })
+  );
+
+  logger.info(`notifyLostSignals: notified for ${notifiedCount} stale member(s)`);
+});
+
+/**
+ * Fires on every location write. If the group has a route and this
+ * member's new position is within ARRIVAL_RADIUS_METERS of the
+ * destination, pushes the rest of the group about it.
+ *
+ * `arrivedNotifiedForRouteSetAt` (stored on the location doc) tracks
+ * which route version - identified by the group's `route.setAt` - an
+ * arrival was already sent for. If the owner sets a new route later
+ * (different `setAt`), a fresh arrival at the new destination can notify
+ * again rather than staying permanently suppressed by an old arrival.
+ */
+export const notifyOnArrival = onDocumentWritten(
+  'groups/{groupId}/locations/{userId}',
+  async (event) => {
+    const after = event.data?.after;
+    if (!after?.exists) return; // location doc deleted (left/removed)
+
+    const location = after.data()!;
+    const { groupId, userId } = event.params;
+
+    const groupSnap = await db.collection('groups').doc(groupId).get();
+    const route = groupSnap.data()?.route as
+      | { destination?: { lat: number; lng: number }; setAt?: Timestamp }
+      | undefined;
+    const destination = route?.destination;
+    if (!destination || !route?.setAt) return; // no route set
+
+    const alreadyNotified = (location.arrivedNotifiedForRouteSetAt as Timestamp | undefined)?.isEqual?.(
+      route.setAt
+    );
+    if (alreadyNotified) return;
+
+    const distanceMeters = haversineMeters(
+      location.lat,
+      location.lng,
+      destination.lat,
+      destination.lng
+    );
+    if (distanceMeters > ARRIVAL_RADIUS_METERS) return;
+
+    await after.ref.update({ arrivedNotifiedForRouteSetAt: route.setAt });
+    await sendPushToGroupMembers(groupId, {
+      title: 'Arrived',
+      body: `${location.displayName ?? 'A member'} has arrived at the destination.`,
+      excludeUid: userId,
+    });
+  }
+);

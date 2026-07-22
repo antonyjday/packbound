@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
-import { onDocumentWritten, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { onDocumentWritten, onDocumentUpdated, onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
 import {
@@ -222,8 +222,8 @@ export const warnExpiringGroups = onSchedule(WARNING_SWEEP_SCHEDULE, async () =>
  * by the scheduled sweep above), immediately delete the live location
  * data - there's no reason to keep broadcasting or retaining precise
  * positions once a trip is over. Membership records are kept (for
- * trip history) but locations are wiped since they're the sensitive,
- * time-sensitive part.
+ * trip history) but locations and quick-messages are wiped since they're
+ * the sensitive/time-sensitive parts.
  */
 export const cleanupEndedGroupData = onDocumentUpdated('groups/{groupId}', async (event) => {
   const before = event.data?.before.data();
@@ -234,11 +234,14 @@ export const cleanupEndedGroupData = onDocumentUpdated('groups/{groupId}', async
   if (!justEnded) return;
 
   const { groupId } = event.params;
-  const locationsRef = db.collection('groups').doc(groupId).collection('locations');
+  const groupRef = db.collection('groups').doc(groupId);
 
-  await db.recursiveDelete(locationsRef);
+  await Promise.all([
+    db.recursiveDelete(groupRef.collection('locations')),
+    db.recursiveDelete(groupRef.collection('messages')),
+  ]);
 
-  logger.info(`cleanupEndedGroupData: purged locations for group ${groupId}`);
+  logger.info(`cleanupEndedGroupData: purged locations/messages for group ${groupId}`);
 });
 
 /**
@@ -360,6 +363,27 @@ export const notifyOnArrival = onDocumentWritten(
       title: 'Arrived',
       body: `${location.displayName ?? 'A member'} has arrived at the destination.`,
       excludeUid: userId,
+    });
+  }
+);
+
+/**
+ * Fires on every quick-message sent (see GroupService.sendQuickMessage) -
+ * pushes it to the rest of the group, same as the other notifications
+ * above, so a preset message like "Pulling over" reaches members who
+ * aren't currently looking at the app.
+ */
+export const notifyOnQuickMessage = onDocumentCreated(
+  'groups/{groupId}/messages/{messageId}',
+  async (event) => {
+    const message = event.data?.data();
+    if (!message) return;
+
+    const { groupId } = event.params;
+    await sendPushToGroupMembers(groupId, {
+      title: message.senderName ?? 'New message',
+      body: message.text ?? '',
+      excludeUid: message.senderId,
     });
   }
 );

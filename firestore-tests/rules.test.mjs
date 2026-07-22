@@ -334,3 +334,86 @@ describe('groups/{groupId}/locations/{userId}', () => {
     await assertFails(asUser('member2').doc('groups/g1/locations/owner1').delete());
   });
 });
+
+describe('groups/{groupId}/messages/{messageId}', () => {
+  async function seedActiveGroupWithMembers() {
+    await seed(async (db) => {
+      await db.doc('groups/g1').set({ createdBy: 'owner1', ownerId: 'owner1', status: 'active' });
+      await db.doc('groups/g1/members/owner1').set({ role: 'owner' });
+      await db.doc('groups/g1/members/member2').set({ role: 'member' });
+    });
+  }
+
+  test('a member can read the message feed', async () => {
+    await seedActiveGroupWithMembers();
+    await seed((db) =>
+      db.collection('groups/g1/messages').add({ senderId: 'owner1', text: 'Pulling over' }),
+    );
+    await assertSucceeds(asUser('member2').collection('groups/g1/messages').get());
+  });
+
+  test('a non-member cannot read the message feed', async () => {
+    await seedActiveGroupWithMembers();
+    await assertFails(asUser('stranger').collection('groups/g1/messages').get());
+  });
+
+  test('a member can send a message as themselves while the group is active', async () => {
+    await seedActiveGroupWithMembers();
+    await assertSucceeds(
+      asUser('member2').collection('groups/g1/messages').add({
+        senderId: 'member2',
+        senderName: 'Member Two',
+        text: 'Need gas',
+      }),
+    );
+  });
+
+  test('a member cannot send a message impersonating someone else', async () => {
+    await seedActiveGroupWithMembers();
+    await assertFails(
+      asUser('member2').collection('groups/g1/messages').add({
+        senderId: 'owner1',
+        senderName: 'Owner One',
+        text: 'Fake message',
+      }),
+    );
+  });
+
+  test('a non-member cannot send a message', async () => {
+    await seedActiveGroupWithMembers();
+    await assertFails(
+      asUser('stranger').collection('groups/g1/messages').add({
+        senderId: 'stranger',
+        senderName: 'Stranger',
+        text: 'Hi',
+      }),
+    );
+  });
+
+  test('a member cannot send a message once the group has ended', async () => {
+    await seed(async (db) => {
+      await db.doc('groups/g1').set({ createdBy: 'owner1', ownerId: 'owner1', status: 'ended' });
+      await db.doc('groups/g1/members/member2').set({ role: 'member' });
+    });
+    await assertFails(
+      asUser('member2').collection('groups/g1/messages').add({
+        senderId: 'member2',
+        senderName: 'Member Two',
+        text: 'Need gas',
+      }),
+    );
+  });
+
+  test('messages cannot be edited once sent', async () => {
+    await seedActiveGroupWithMembers();
+    let ref;
+    await seed(async (db) => {
+      ref = await db
+        .collection('groups/g1/messages')
+        .add({ senderId: 'member2', text: 'Need gas' });
+    });
+    await assertFails(
+      asUser('member2').doc(`groups/g1/messages/${ref.id}`).update({ text: 'Edited' }),
+    );
+  });
+});

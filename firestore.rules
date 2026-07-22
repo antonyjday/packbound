@@ -94,6 +94,19 @@ service cloud.firestore {
         // disappears immediately instead of lingering as a stale pin.
         allow delete: if isOwner(groupId);
       }
+
+      match /messages/{messageId} {
+        // Only group members can see the quick-message feed.
+        allow read: if isMember(groupId);
+        // A user can only ever send as themselves, only while a member,
+        // and only while the trip is still active - same guards as
+        // locations. Fire-and-forget log: no update/delete rule, so
+        // there's no way to edit or retract a sent message.
+        allow create: if isSignedIn() &&
+          request.auth.uid == request.resource.data.senderId &&
+          isMember(groupId) &&
+          isActiveGroup(groupId);
+      }
     }
   }
 }

@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/group.dart';
+import '../models/group_message.dart';
 import '../models/location_point.dart';
 import '../models/route_plan.dart';
 import '../services/auth_service.dart';
@@ -15,6 +16,7 @@ import '../services/location_service.dart';
 import '../utils/member_colors.dart';
 import '../utils/navigation_progress.dart';
 import '../utils/polyline_codec.dart';
+import '../utils/quick_messages.dart';
 import '../utils/route_progress.dart';
 import 'location_permission_screen.dart';
 import 'invite_screen.dart';
@@ -131,6 +133,18 @@ class _MapScreenState extends State<MapScreen> {
   // notification) apart from "was already owner when this screen opened"
   // (not a change, nothing to announce).
   bool _hasSeenMembership = false;
+
+  // Quick-messages (see quick_messages.dart) - a live listener rather than
+  // a StreamBuilder in build(), same reasoning as _groupStatusSub/
+  // _membershipSub above: this is a side-channel event feed that pops a
+  // SnackBar when something new arrives, not something the main build
+  // needs on every frame. _hasSeenMessages gates the same way
+  // _hasSeenMembership does above - the first snapshot (whatever
+  // messages already existed when this screen opened) is just recorded,
+  // not announced.
+  StreamSubscription<List<GroupMessage>>? _messagesSub;
+  bool _hasSeenMessages = false;
+  DateTime? _lastSeenMessageAt;
 
   // Hard-cap expiry, kept in sync from the group doc listener so the
   // countdown/warning banner reflects extensions immediately.
@@ -275,6 +289,10 @@ class _MapScreenState extends State<MapScreen> {
           // ever fires from the stale-cache case handled there instead.
           onError: (_) => _handleMembershipRemoved(),
         );
+
+    _messagesSub = _groupService
+        .messagesStream(widget.group.id)
+        .listen(_onMessagesSnapshot, onError: (_) {});
 
     // Sharing defaults to on: most people opening a group's map are here to
     // be tracked, and re-tapping "start sharing" every time you reopen the
@@ -874,6 +892,7 @@ class _MapScreenState extends State<MapScreen> {
     _connectivitySub?.cancel();
     _groupStatusSub?.cancel();
     _membershipSub?.cancel();
+    _messagesSub?.cancel();
     _locationService.stopSharing();
     super.dispose();
   }
@@ -909,6 +928,90 @@ class _MapScreenState extends State<MapScreen> {
       }
       _lastKnownStatus[p.userId] = current;
     }
+  }
+
+  /// Reacts to the quick-messages feed (see quick_messages.dart): pops a
+  /// SnackBar for anything sent after this screen opened, other than this
+  /// device's own messages (the sender already knows they sent it).
+  /// `messages` is newest-first (see GroupService.messagesStream) - shown
+  /// oldest-to-newest so multiple SnackBars queue in reading order.
+  void _onMessagesSnapshot(List<GroupMessage> messages) {
+    if (messages.isEmpty) return;
+
+    if (!_hasSeenMessages) {
+      _hasSeenMessages = true;
+      _lastSeenMessageAt = messages.first.sentAt.toDate();
+      return;
+    }
+
+    final lastSeen = _lastSeenMessageAt;
+    final newMessages = messages
+        .where((m) => m.senderId != _authService.uid)
+        .where((m) => lastSeen == null || m.sentAt.toDate().isAfter(lastSeen))
+        .toList()
+        .reversed;
+
+    for (final m in newMessages) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${m.senderName}: ${m.text}'),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      });
+    }
+    _lastSeenMessageAt = messages.first.sentAt.toDate();
+  }
+
+  Future<void> _sendQuickMessage(String text) async {
+    final displayName = _authService.currentUser?.displayName ?? 'Someone';
+    try {
+      await _groupService.sendQuickMessage(
+        widget.group.id,
+        senderId: _authService.uid!,
+        senderName: displayName,
+        text: text,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
+  void _showQuickMessageSheet() {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Send a quick message',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            for (final preset in quickMessagePresets)
+              ListTile(
+                leading: Icon(preset.icon),
+                title: Text(preset.text),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _sendQuickMessage(preset.text);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleSharing() async {
@@ -1576,6 +1679,21 @@ class _MapScreenState extends State<MapScreen> {
                         child: Icon(
                           _sharing ? Icons.location_off : Icons.location_on,
                         ),
+                      ),
+                    ),
+
+                    // Quick-message button - preset broadcasts to the group
+                    // (see quick_messages.dart), not tied to having a route
+                    // set, so it sits with the always-visible sharing toggle
+                    // rather than the route-dependent step/skip buttons.
+                    Positioned(
+                      top: 12,
+                      left: 68,
+                      child: FloatingActionButton.small(
+                        heroTag: 'quickMessage',
+                        onPressed: _showQuickMessageSheet,
+                        tooltip: 'Send a quick message',
+                        child: const Icon(Icons.campaign),
                       ),
                     ),
 

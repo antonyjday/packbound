@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/group.dart';
+import '../models/group_message.dart';
 import '../models/route_plan.dart';
 
 class GroupService {
@@ -262,5 +263,37 @@ class GroupService {
         .doc(groupId)
         .collection('members')
         .snapshots();
+  }
+
+  /// Broadcasts a preset quick-message to the group (see
+  /// lib/utils/quick_messages.dart) - a fire-and-forget log entry, not a
+  /// two-way chat: covered by `notifyOnQuickMessage` in
+  /// functions/src/index.ts, which pushes it to every other member.
+  Future<void> sendQuickMessage(
+    String groupId, {
+    required String senderId,
+    required String senderName,
+    required String text,
+  }) {
+    return _db.collection('groups').doc(groupId).collection('messages').add({
+      'senderId': senderId,
+      'senderName': senderName,
+      'text': text,
+      'sentAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Most recent quick-messages, newest first - MapScreen only needs
+  /// enough to notice something new arrived (see _onMessagesSnapshot),
+  /// not a scrollable history, hence the small limit.
+  Stream<List<GroupMessage>> messagesStream(String groupId, {int limit = 20}) {
+    return _db
+        .collection('groups')
+        .doc(groupId)
+        .collection('messages')
+        .orderBy('sentAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) => snap.docs.map(GroupMessage.fromDoc).toList());
   }
 }

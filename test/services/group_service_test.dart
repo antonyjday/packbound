@@ -259,4 +259,45 @@ void main() {
       expect((await groupData(group.id))?['status'], 'ended');
     });
   });
+
+  group('sendQuickMessage / messagesStream', () {
+    test('sends a message and it appears in the stream, newest first', () async {
+      final group = await service.createGroup(name: 'Trip', ownerId: 'owner-1');
+
+      await service.sendQuickMessage(
+        group.id,
+        senderId: 'owner-1',
+        senderName: 'Owner',
+        text: 'Pulling over',
+      );
+      await Future.delayed(const Duration(milliseconds: 5));
+      await service.sendQuickMessage(
+        group.id,
+        senderId: 'member-2',
+        senderName: 'Member Two',
+        text: 'Need gas',
+      );
+
+      final messages = await service.messagesStream(group.id).first;
+      expect(messages.length, 2);
+      expect(messages.first.text, 'Need gas'); // most recently sent
+      expect(messages.first.senderName, 'Member Two');
+      expect(messages.last.text, 'Pulling over');
+    });
+
+    test('messagesStream respects the limit', () async {
+      final group = await service.createGroup(name: 'Trip', ownerId: 'owner-1');
+      for (var i = 0; i < 5; i++) {
+        await service.sendQuickMessage(
+          group.id,
+          senderId: 'owner-1',
+          senderName: 'Owner',
+          text: 'Message $i',
+        );
+      }
+
+      final messages = await service.messagesStream(group.id, limit: 3).first;
+      expect(messages.length, 3);
+    });
+  });
 }

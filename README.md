@@ -78,6 +78,11 @@ position on a shared map for the duration of the trip.
   destination ("Arrived"), so nobody has to be staring at the map to
   notice. Server-side (Cloud Functions), so it fires even if the app is
   backgrounded or killed.
+- **Quick messages** — a one-tap button broadcasts a preset message
+  ("Pulling over", "Need fuel", "Wait for me", ...) to the group - a live
+  SnackBar for anyone with the map open, and a push notification for
+  everyone else. Deliberately fixed presets rather than free-text chat,
+  covering most real convoy communication needs for far less effort.
 
 ## Tech stack
 
@@ -537,6 +542,28 @@ see [CLEANUP.md](CLEANUP.md).
       doc, but not anyone else's). This is what the mocked-Firestore
       service-layer tests above structurally can't do, since a fake
       Firestore doesn't evaluate `firestore.rules` at all.
+- [x] Added quick messages (described above): new `GroupMessage` model,
+      `groups/{groupId}/messages` subcollection (`GroupService.
+      sendQuickMessage`/`messagesStream`), a `notifyOnQuickMessage` Cloud
+      Function reusing the same `sendPushToGroupMembers` helper the other
+      notifications use, and matching `firestore.rules` (send-as-yourself/
+      member/active-group guards mirroring `locations`, no update/delete -
+      an immutable fire-and-forget log) with 7 new rules tests (45 total
+      now) and 2 new service tests (91 Dart tests total). Wired the
+      incoming-message listener the same way `_groupStatusSub`/
+      `_membershipSub` already work - a live subscription outside
+      `build()`, not a StreamBuilder, since it's a side-channel event feed
+      (pop a SnackBar) rather than something the map needs on every frame.
+      `cleanupEndedGroupData` now also purges `messages` when a group
+      ends, alongside `locations`. Verified live end-to-end: sent "Pulling
+      over" from the app and confirmed the Firestore doc; separately
+      confirmed a real push ("TestScriptMember: Need gas") landing on a
+      backgrounded device from a script-simulated sender, same
+      verification approach used for the other notifications above (one
+      of the two test emulators repeatedly hit an unrelated System UI
+      crash loop this session, so the foreground SnackBar path is only
+      verified by code inspection/pattern-matching against the already-
+      proven signal-lost/back-online SnackBar, not a live screenshot).
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -576,10 +603,6 @@ see [CLEANUP.md](CLEANUP.md).
       avoids that vendor but needs a self-hosted TURN server and hits a
       real quality ceiling past ~4-6 simultaneous speakers (mesh
       topology), for meaningfully more effort and ongoing ops burden.
-- [ ] Lightweight in-group communication - even just preset quick-messages
-      ("pulling over", "need gas", "lost you") rather than free-text chat
-      or the bigger voice-call idea above. Covers most real convoy
-      communication needs for much less effort than either.
 - [ ] Per-member battery-level visibility (Life360/Find My both show
       this) - a dead phone is the single most common reason a pin goes
       stale, and knowing e.g. "Alex is at 8%" is actionable context the

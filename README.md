@@ -495,3 +495,24 @@ see [CLEANUP.md](CLEANUP.md).
       avoids that vendor but needs a self-hosted TURN server and hits a
       real quality ceiling past ~4-6 simultaneous speakers (mesh
       topology), for meaningfully more effort and ongoing ops burden.
+- [ ] Proactive push notifications for member state changes - "X's signal
+      has been lost for 5 min" or "X arrived at the destination" - not
+      just the existing ownership-handoff notification. Matters more than
+      most other ideas here for the app's core "don't lose each other"
+      promise, since nobody's staring at the map the whole drive. Already
+      has `firebase_messaging` wired in and a precedent (the ownership
+      notification) to follow; the new part is server-side detection of
+      these transitions (likely a Cloud Function reacting to
+      `locations/{userId}` writes/staleness and `LocationPoint.status`
+      going to `lost`, plus a destination-arrival radius check) rather
+      than anything client-side.
+- [ ] Lightweight in-group communication - even just preset quick-messages
+      ("pulling over", "need gas", "lost you") rather than free-text chat
+      or the bigger voice-call idea above. Covers most real convoy
+      communication needs for much less effort than either.
+- [ ] Per-member battery-level visibility (Life360/Find My both show
+      this) - a dead phone is the single most common reason a pin goes
+      stale, and knowing e.g. "Alex is at 8%" is actionable context the
+      group doesn't currently get. `LocationPoint`/`startSharing` would
+      need a `batteryLevel` field (Android/iOS both expose this to
+      Flutter via existing plugins) alongside the existing heading/speed.

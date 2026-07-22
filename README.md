@@ -520,7 +520,8 @@ see [CLEANUP.md](CLEANUP.md).
       (mocked-Firestore tests don't enforce actual security rules, so
       they can't catch the class of bug that motivated this in the first
       place).
-- [x] Added a `firestore.rules` test suite (`firestore-tests/`, 38 tests)
+- [x] Added a `firestore.rules` test suite (`firestore-tests/`, 45 tests -
+      grew from the initial 38 once the `messages` rules were added)
       against the real Firestore emulator via
       `@firebase/rules-unit-testing` - a separate Node project from
       `functions/` (this tests the rules themselves, not the Cloud
@@ -536,12 +537,14 @@ see [CLEANUP.md](CLEANUP.md).
       (accepted only when it touches *just* `ownerId` and the group was
       actually ownerless; rejected if it touches other fields, claims
       ownership for someone else, or the group already has an owner),
-      and the full `members`/`locations` matrices - including a
+      and the full `members`/`locations`/`messages` matrices - including a
       regression test for the exact chicken-and-egg member-read fix from
       earlier (a non-member can read their own not-yet-existing member
       doc, but not anyone else's). This is what the mocked-Firestore
       service-layer tests above structurally can't do, since a fake
-      Firestore doesn't evaluate `firestore.rules` at all.
+      Firestore doesn't evaluate `firestore.rules` at all. Re-verified
+      passing (all 45) after later rules-adjacent changes (member removal,
+      ownership inheritance, quick messages) with no drift.
 - [x] Added quick messages (described above): new `GroupMessage` model,
       `groups/{groupId}/messages` subcollection (`GroupService.
       sendQuickMessage`/`messagesStream`), a `notifyOnQuickMessage` Cloud
@@ -621,11 +624,6 @@ see [CLEANUP.md](CLEANUP.md).
       gracefully for people who don't have the app yet — needs a real domain
       and hosting `.well-known/apple-app-site-association` /
       `assetlinks.json`. See PLATFORM_SETUP.md for details.
-- [ ] A separate `firestore.rules` test suite against the emulator (needs
-      `@firebase/rules-unit-testing`, a Node test suite distinct from the
-      Dart ones) - the only thing that would've caught the
-      group-creation batch/rules bug from earlier, since mocked-Firestore
-      service tests (see "Done" above) don't enforce real security rules.
 - [ ] `applicationId`/bundle ID are still the Flutter-generated
       `com.example.convoy.*` — rename before publishing to either app store.
 - [ ] No app icon / launch screen customization — using Flutter defaults.

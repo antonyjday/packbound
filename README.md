@@ -745,6 +745,12 @@ see [CLEANUP.md](CLEANUP.md).
       by reproducing the exact scenario: bumped emulator density from
       420 to 560 (`adb shell wm density 560`, matching a "Display size"
       zoom bump) - confirmed all 5 buttons stack cleanly with no overlap.
+      That broke landscape though, where height is the scarce axis
+      instead - a fixed vertical stack overflowed the shorter screen and
+      overlapped the bottom route-info chips there. Made the rail
+      orientation-aware (`railTop`/`railRight` helpers): vertical in
+      portrait, back to the original horizontal row in landscape.
+      Verified both orientations live via `adb emu rotate`.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

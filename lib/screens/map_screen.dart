@@ -1742,6 +1742,24 @@ class _MapScreenState extends State<MapScreen> {
               .length;
           final expiryBanner = _buildExpiryBanner();
 
+          // Roster/refit/"My location"/step-route/skip-route: a vertical
+          // stack down the right edge in portrait (see the Positioned
+          // widgets below) since portrait phones have far more vertical
+          // slack than horizontal, but that same logic inverts in
+          // landscape - width is now the abundant one, and stacking 5
+          // buttons vertically there instead overflows the (now much
+          // shorter) screen height and overlaps the bottom route-info
+          // chips. Same fixed-offset row either way, just swapped which
+          // axis it grows along - matches the same orientation check the
+          // bottom info-chip stack below already makes for the same
+          // reason.
+          final isLandscapeButtonRail =
+              MediaQuery.of(context).orientation == Orientation.landscape;
+          double railTop(int index) =>
+              isLandscapeButtonRail ? 12 : 12 + index * 56.0;
+          double railRight(int index) =>
+              isLandscapeButtonRail ? 12 + index * 56.0 : 12;
+
           // Next turn-by-turn instruction, if any - recomputed fresh from
           // wherever this device currently is on every rebuild (cheap local
           // geometry against the steps already fetched by the last
@@ -1955,19 +1973,14 @@ class _MapScreenState extends State<MapScreen> {
                     ),
 
                     // Roster/refit/recenter/step/skip - stacked vertically
-                    // down the right edge (was a horizontal row at a fixed
-                    // top:12, spread right:12/68/124/180/236) since that
-                    // absolute-width layout had nowhere to go on a narrower
-                    // effective screen width - a smaller device, or Android's
-                    // "Display size" zoom accessibility setting shrinking the
-                    // usable logical width, made these buttons start
-                    // overlapping each other. Portrait phones have far more
-                    // vertical slack than horizontal, so a vertical stack
-                    // (same idea as Google's own zoom controls) sidesteps the
-                    // problem entirely instead of fine-tuning pixel offsets.
+                    // down the right edge in portrait, or horizontally
+                    // along the top in landscape (see railTop/railRight
+                    // above) rather than a fixed row either way, since
+                    // whichever axis is "abundant" swaps between the two
+                    // orientations.
                     Positioned(
-                      top: 12,
-                      right: 12,
+                      top: railTop(0),
+                      right: railRight(0),
                       child: Badge(
                         label: Text('$lostCount'),
                         isLabelVisible: lostCount > 0,
@@ -1983,8 +1996,8 @@ class _MapScreenState extends State<MapScreen> {
                     // Manual re-fit - lets users recenter on the whole group
                     // after they've panned/zoomed away from the auto-fit view.
                     Positioned(
-                      top: 68,
-                      right: 12,
+                      top: railTop(1),
+                      right: railRight(1),
                       child: FloatingActionButton.small(
                         heroTag: 'refit',
                         onPressed: () {
@@ -1998,8 +2011,8 @@ class _MapScreenState extends State<MapScreen> {
                     // Jumps straight to this device's own current position -
                     // see _recenterOnMe.
                     Positioned(
-                      top: 124,
-                      right: 12,
+                      top: railTop(2),
+                      right: railRight(2),
                       child: FloatingActionButton.small(
                         heroTag: 'recenterOnMe',
                         onPressed: () => _recenterOnMe(points),
@@ -2016,8 +2029,8 @@ class _MapScreenState extends State<MapScreen> {
                     // a near-duplicate of the skip-ahead button below.
                     if (route != null)
                       Positioned(
-                        top: 180,
-                        right: 12,
+                        top: railTop(3),
+                        right: railRight(3),
                         child: FloatingActionButton.small(
                           heroTag: 'stepRoute',
                           onPressed: () => _stepThroughRoute(route, points),
@@ -2036,8 +2049,8 @@ class _MapScreenState extends State<MapScreen> {
                     // changes the actual route/ETA, not just the camera.
                     if (route != null)
                       Positioned(
-                        top: 236,
-                        right: 12,
+                        top: railTop(4),
+                        right: railRight(4),
                         child: FloatingActionButton.small(
                           heroTag: 'skipRouteLeg',
                           onPressed: () => _toggleSkipRouteLeg(route, points),

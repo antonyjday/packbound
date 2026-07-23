@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/location_service.dart';
 
 /// Shown once, before the OS permission dialog, so the user understands
-/// *why* Convoy wants their location and *who* can see it before the
+/// *why* Packbound wants their location and *who* can see it before the
 /// system prompt interrupts them. This is expected by both Apple and
 /// Google review guidelines for apps requesting background location,
 /// and it measurably improves grant rates versus a cold OS prompt.
@@ -41,7 +41,7 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Location permission needed'),
         content: const Text(
-          'Convoy can\'t share your position with the group without location '
+          'Packbound can\'t share your position with the group without location '
           'access. You can turn it on in your device Settings whenever '
           'you\'re ready.',
         ),

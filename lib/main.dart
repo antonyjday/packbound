@@ -26,7 +26,7 @@ class ConvoyApp extends StatelessWidget {
       valueListenable: ThemeService.instance.themeMode,
       builder: (context, mode, _) {
         return MaterialApp(
-          title: 'Convoy',
+          title: 'Packbound',
           theme: ThemeData(
             colorSchemeSeed: Colors.deepOrange,
             useMaterial3: true,

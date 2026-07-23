@@ -20,10 +20,10 @@ class InviteScreen extends StatelessWidget {
     final link = buildInviteLink(group.inviteCode);
     SharePlus.instance.share(
       ShareParams(
-        text: 'Join my convoy "${group.name}" on Convoy!\n\n'
+        text: 'Join my convoy "${group.name}" on Packbound!\n\n'
             'Tap to join: $link\n\n'
             'Or open the app and enter code: ${group.inviteCode}',
-        subject: 'Join "${group.name}" on Convoy',
+        subject: 'Join "${group.name}" on Packbound',
       ),
     );
   }

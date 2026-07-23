@@ -1,4 +1,4 @@
-package com.example.convoy.convoy_app
+package net.packbound.app
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -9,7 +9,7 @@ import '../models/route_plan.dart';
 /// Directions (see DirectionsService), just also allow-listed for this API.
 class PlacesService {
   static const _apiKey = 'AIzaSyAmylfZB3RZCB5TcIJ3g63nk_t2IKRiSX4';
-  static const _androidPackage = 'com.example.convoy.convoy_app';
+  static const _androidPackage = 'net.packbound.app';
   static const _androidCertSha1 = 'EF3D285E4E29E32701475DFBED5B113403E47B68';
 
   /// A fresh token to group one search session's autocomplete keystrokes

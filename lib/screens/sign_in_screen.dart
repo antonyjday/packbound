@@ -40,7 +40,7 @@ class _SignInScreenState extends State<SignInScreen> {
             children: [
               const Icon(Icons.route, size: 64, color: Colors.deepOrange),
               const SizedBox(height: 16),
-              const Text('Convoy', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+              const Text('Packbound', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               const Text('Share your location with your travel group'),
               const SizedBox(height: 32),

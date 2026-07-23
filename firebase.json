@@ -35,7 +35,7 @@
       "android": {
         "default": {
           "projectId": "convoy-app-ajd",
-          "appId": "1:64084544537:android:2c70f045befcac37666e88",
+          "appId": "1:64084544537:android:ec9faee7086ae6b0666e88",
           "fileOutput": "android/app/google-services.json"
         }
       },
@@ -43,7 +43,7 @@
         "lib/firebase_options.dart": {
           "projectId": "convoy-app-ajd",
           "configurations": {
-            "android": "1:64084544537:android:2c70f045befcac37666e88",
+            "android": "1:64084544537:android:ec9faee7086ae6b0666e88",
             "ios": "1:64084544537:ios:2c2d71b57622e34f666e88"
           }
         }

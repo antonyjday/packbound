@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.convoy.convoy_app"
+    namespace = "net.packbound.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -19,7 +19,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.convoy.convoy_app"
+        applicationId = "net.packbound.app"
         // minSdk 26: geolocator background support wants 26+; below that,
         // background location permission doesn't exist until API 29 anyway,
         // so lower devices would only get foreground updates.

@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:app_links/app_links.dart';
 import '../utils/invite_link.dart';
 
-/// Listens for `convoy://join/CODE` links, whether the app was launched
+/// Listens for `packbound://join/CODE` links, whether the app was launched
 /// cold by tapping the link or was already running in the background.
 ///
 /// Deliberately simple rather than routing directly: it just exposes a

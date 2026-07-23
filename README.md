@@ -1,7 +1,7 @@
-# Convoy
+# Packbound
 
 Real-time location sharing for travel groups. Create a "convoy," invite people
-by code, QR, or a `convoy://join/CODE` deep link, and see everyone's live
+by code, QR, or a `packbound://join/CODE` deep link, and see everyone's live
 position on a shared map for the duration of the trip.
 
 ## Features
@@ -110,7 +110,7 @@ position on a shared map for the duration of the trip.
 - **Google Maps** (`google_maps_flutter`)
 - **geolocator** / **permission_handler** for location
 - **mobile_scanner** / **qr_flutter** for QR invites
-- **app_links** for `convoy://join/CODE` deep links
+- **app_links** for `packbound://join/CODE` deep links
 
 ## Project structure
 
@@ -751,6 +751,26 @@ see [CLEANUP.md](CLEANUP.md).
       orientation-aware (`railTop`/`railRight` helpers): vertical in
       portrait, back to the original horizontal row in landscape.
       Verified both orientations live via `adb emu rotate`.
+- [x] Rebranded the app to "Packbound" (`packbound.net`). Updated all
+      user-facing brand references (app title, sign-in headline, home
+      app bar, share text, permission-explainer copy, the location-
+      sharing foreground notification title) - left generic uses of the
+      word "convoy" alone (a travel group, e.g. "Start a new convoy",
+      "Remove from convoy?"), since those describe the feature, not the
+      product name. Also closed the Android half of the applicationId
+      TODO: registered a new Firebase Android app under
+      `net.packbound.app` (`firebase apps:create`), replaced
+      `google-services.json`, updated `firebase_options.dart`/
+      `firebase.json`, renamed the Gradle `applicationId`/`namespace`,
+      and moved `MainActivity.kt` to match the new package. The custom
+      deep-link scheme is now `packbound://join/CODE` (was `convoy://`).
+      Did NOT touch the Dart package name (`convoy_app` in
+      `pubspec.yaml`) or iOS - see the TODOs below for why.
+      **Still needed**: the Google Maps API key's Android restriction
+      (package name + SHA-1) needs `net.packbound.app` added in Google
+      Cloud Console, or Maps/Directions/Places calls will start failing
+      once that key is actually enforcing restrictions - this can only
+      be done from the console, not via CLI from here.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -763,15 +783,21 @@ see [CLEANUP.md](CLEANUP.md).
       before shipping a release build.
 
 **Known gaps / follow-ups called out in the code:**
-- [ ] Custom URL scheme (`convoy://`) only works if the app is already
+- [ ] Custom URL scheme (`packbound://`) only works if the app is already
       installed. Upgrading to a universal/app link
-      (`https://yourdomain.com/join/CODE`) would let invites degrade
-      gracefully for people who don't have the app yet — needs a real domain
-      and hosting `.well-known/apple-app-site-association` /
-      `assetlinks.json`. See PLATFORM_SETUP.md for details.
-- [ ] `applicationId`/bundle ID are still the Flutter-generated
-      `com.example.convoy.*` — rename before publishing to either app store.
+      (`https://packbound.net/join/CODE`) would let invites degrade
+      gracefully for people who don't have the app yet - the domain is now
+      registered, but this still needs hosting
+      `.well-known/apple-app-site-association` / `assetlinks.json` on it.
+      See PLATFORM_SETUP.md for details.
+- [ ] iOS bundle ID is still the Flutter-generated placeholder
+      (`com.example.convoy.convoyApp`) - rename to something under
+      `packbound` once iOS is actually being configured (blocked on the
+      Mac/Xcode step below anyway, so left as-is for now rather than
+      guessing at a value with nothing to verify it against).
 - [ ] No app icon / launch screen customization — using Flutter defaults.
+      Worth revisiting now that there's a real brand name, if a logo/icon
+      asset gets made.
 
 **Future feature ideas (not started):**
 - [ ] In-app group voice call — a button to join a live audio call with

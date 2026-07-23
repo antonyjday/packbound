@@ -21,7 +21,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
-        android:label="Convoy"
+        android:label="Packbound"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
@@ -52,12 +52,12 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- Handles convoy://join/CODE invite links -->
+            <!-- Handles packbound://join/CODE invite links -->
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="convoy" android:host="join" />
+                <data android:scheme="packbound" android:host="join" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

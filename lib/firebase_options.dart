@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCdXpPmF_phYAvM0m2EQqwmVTCG-GWMCPA',
-    appId: '1:64084544537:android:2c70f045befcac37666e88',
+    appId: '1:64084544537:android:ec9faee7086ae6b0666e88',
     messagingSenderId: '64084544537',
     projectId: 'convoy-app-ajd',
     storageBucket: 'convoy-app-ajd.firebasestorage.app',

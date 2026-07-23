@@ -14,7 +14,7 @@ class DirectionsService {
   // (android/app/src/main/AndroidManifest.xml) - also allow-listed for the
   // Directions API, so the same key works for both.
   static const _apiKey = 'AIzaSyAmylfZB3RZCB5TcIJ3g63nk_t2IKRiSX4';
-  static const _androidPackage = 'com.example.convoy.convoy_app';
+  static const _androidPackage = 'net.packbound.app';
   static const _androidCertSha1 = 'EF3D285E4E29E32701475DFBED5B113403E47B68';
 
   Future<RoutePlan> route({

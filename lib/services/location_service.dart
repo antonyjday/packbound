@@ -69,7 +69,7 @@ class LocationService {
         // running as a foreground service with a persistent notification -
         // required on Android 9+ for reliable background tracking.
         foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationTitle: 'Convoy is sharing your location',
+          notificationTitle: 'Packbound is sharing your location',
           notificationText: 'Your travel group can see your position',
           enableWakeLock: true,
         ),

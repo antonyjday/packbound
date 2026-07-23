@@ -59,6 +59,7 @@ dependencies:
   app_links: ^6.3.2
   http: ^1.2.0
   battery_plus: ^7.1.1
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:

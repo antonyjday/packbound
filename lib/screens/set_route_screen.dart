@@ -9,6 +9,7 @@ import '../services/directions_service.dart';
 import '../services/group_service.dart';
 import '../services/location_service.dart';
 import '../services/places_service.dart';
+import '../utils/map_styles.dart';
 import 'location_permission_screen.dart';
 
 enum _TapMode { origin, destination, stop }
@@ -334,6 +335,9 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
                   children: [
                     GoogleMap(
                       initialCameraPosition: startCamera,
+                      style: Theme.of(context).brightness == Brightness.dark
+                          ? nightMapStyle
+                          : null,
                       onTap: _onMapTap,
                       markers: _buildMarkers(),
                       onMapCreated: (c) => _mapController = c,
@@ -378,7 +382,7 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
                                             },
                                           )),
                                 filled: true,
-                                fillColor: Colors.white,
+                                fillColor: Theme.of(context).colorScheme.surface,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(28),
                                   borderSide: BorderSide.none,

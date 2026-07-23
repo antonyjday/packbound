@@ -14,6 +14,8 @@ import '../services/auth_service.dart';
 import '../services/directions_service.dart';
 import '../services/group_service.dart';
 import '../services/location_service.dart';
+import '../services/theme_service.dart';
+import '../utils/map_styles.dart';
 import '../utils/member_colors.dart';
 import '../utils/navigation_progress.dart';
 import '../utils/polyline_codec.dart';
@@ -1491,6 +1493,7 @@ class _MapScreenState extends State<MapScreen> {
               if (value == 'route') _openSetRoute();
               if (value == 'clear_route') _clearRoute();
               if (value == 'toggle_invite') _toggleMembersCanInvite();
+              if (value == 'toggle_theme') ThemeService.instance.toggle();
               if (value == 'leave') _confirmLeaveTrip();
             },
             itemBuilder: (context) => [
@@ -1547,6 +1550,18 @@ class _MapScreenState extends State<MapScreen> {
                 ),
                 const PopupMenuDivider(),
               ],
+              PopupMenuItem(
+                value: 'toggle_theme',
+                child: ListTile(
+                  leading: Icon(
+                    ThemeService.instance.themeMode.value == ThemeMode.dark
+                        ? Icons.check_box
+                        : Icons.check_box_outline_blank,
+                  ),
+                  title: const Text('Dark mode'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
               const PopupMenuItem(
                 value: 'leave',
                 child: ListTile(
@@ -1731,6 +1746,13 @@ class _MapScreenState extends State<MapScreen> {
                         target: LatLng(0, 0),
                         zoom: 4,
                       ),
+                      // The map's own tiles don't follow the app's Material
+                      // theme automatically - swap in a dark style so the
+                      // map doesn't stay glaring-white while everything
+                      // around it is dark.
+                      style: Theme.of(context).brightness == Brightness.dark
+                          ? nightMapStyle
+                          : null,
                       markers: markers,
                       polylines: polylines,
                       onMapCreated: (c) {

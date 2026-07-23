@@ -90,6 +90,11 @@ position on a shared map for the duration of the trip.
   push pipeline as quick messages above) to the rest of the group the first
   time this device's own battery drops to 5% or below, so a dying phone
   isn't a silent surprise mid-trip.
+- **Dark mode** — a manual toggle (map screen's menu), seeded from the
+  device's own light/dark setting on first launch and persisted from then
+  on. Covers the app's own theme, the Google Map's tiles (a separate night-
+  style JSON, since the map doesn't follow Material theming on its own),
+  and the route-planning screen's map/search bar.
 
 ## Tech stack
 
@@ -639,6 +644,25 @@ see [CLEANUP.md](CLEANUP.md).
       transient failure gets retried on the next tick) and never on the
       low-battery device's own screen (same as a sender never seeing their
       own quick message). Verified live on two emulators.
+- [x] Added dark mode: `ThemeService` (a single global
+      `ValueNotifier<ThemeMode>`, persisted via `shared_preferences` -
+      deliberately just light/dark, not a three-way system/light/dark
+      picker) wired into `MaterialApp`'s `darkTheme`/`themeMode`, with a
+      "Dark mode" toggle in the map screen's menu (same checkbox style as
+      "Allow members to invite"). Considered auto-switching at the user's
+      local sunset/sunrise first, but that needed the same dark-theme
+      groundwork anyway plus its own extra state (recheck on
+      resume/at the sunset boundary, still needing a manual override) for
+      comparatively little gain over a plain toggle, so built the toggle
+      first. Since the Google Map doesn't follow Material theming on its
+      own, added `lib/utils/map_styles.dart` (a night-mode style JSON) and
+      apply it to `GoogleMap`'s `style` property on both the main map and
+      the route-planning screen. Also caught (from live testing) the
+      route-planning screen's search bar, which had a hardcoded
+      `fillColor: Colors.white` left over from before dark mode existed -
+      switched to `Theme.of(context).colorScheme.surface`. Verified live:
+      toggle switches the whole app immediately (chrome, both maps,
+      search bar), and the choice survives a full app restart.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

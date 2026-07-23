@@ -708,9 +708,16 @@ see [CLEANUP.md](CLEANUP.md).
       granting camera permission. `mobile_scanner`'s default error view
       doesn't surface anything from the underlying
       `MobileScannerException`; added an `errorBuilder` that shows the
-      actual error code/message so the next occurrence is diagnosable
-      (root cause not yet identified - awaiting the real error text from
-      a retry).
+      actual error code/message. That surfaced the real error on retry:
+      `genericError` - `Attempt to invoke virtual method
+      'java.lang.Class java.lang.Object.getClass()' on a null object
+      reference`, a known class of camera-init bug in older
+      `mobile_scanner` releases. Upgraded `mobile_scanner` 5.2.3 → 7.4.0
+      (only breaking change hit: `errorBuilder` dropped its third `child`
+      parameter). Verified the scanner still opens cleanly post-upgrade
+      on emulator; awaiting confirmation the real NPE is actually gone,
+      since it was device-specific and didn't reproduce on the emulator
+      either way.
 - [x] Fixed two real-device issues found during testing:
       1. Members standing still got wrongly marked "signal lost" - the
       `distanceFilter`-based position stream (see the API-efficiency pass

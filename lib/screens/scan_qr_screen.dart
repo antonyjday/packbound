@@ -55,7 +55,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
             // start - surface the actual exception so a real failure
             // (permission, camera in use, unsupported device, ...) is
             // diagnosable instead of a silent question mark.
-            errorBuilder: (context, error, child) => ColoredBox(
+            errorBuilder: (context, error) => ColoredBox(
               color: Colors.black,
               child: Center(
                 child: Padding(

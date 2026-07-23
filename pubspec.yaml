@@ -54,7 +54,7 @@ dependencies:
   uuid: ^4.6.0
   share_plus: ^13.2.1
   qr_flutter: ^4.1.0
-  mobile_scanner: ^5.2.3
+  mobile_scanner: 7.4.0
   connectivity_plus: ^6.1.0
   app_links: ^6.3.2
   http: ^1.2.0

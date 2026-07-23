@@ -79,10 +79,17 @@ position on a shared map for the duration of the trip.
   notice. Server-side (Cloud Functions), so it fires even if the app is
   backgrounded or killed.
 - **Quick messages** — a one-tap button broadcasts a preset message
-  ("Pulling over", "Need fuel", "Wait for me", ...) to the group - a live
-  SnackBar for anyone with the map open, and a push notification for
-  everyone else. Deliberately fixed presets rather than free-text chat,
-  covering most real convoy communication needs for far less effort.
+  ("Pulling over", "Need fuel", "Wait for me", ...) to the group - a
+  centered alert dialog (with the preset's icon) for anyone with the map
+  open, which stays up until explicitly acknowledged rather than a SnackBar
+  that could come and go unread while someone's driving, plus a push
+  notification for everyone else. Deliberately fixed presets rather than
+  free-text chat, covering most real convoy communication needs for far
+  less effort.
+- **Low battery warning** — broadcasts a one-time warning (same alert-dialog/
+  push pipeline as quick messages above) to the rest of the group the first
+  time this device's own battery drops to 5% or below, so a dying phone
+  isn't a silent surprise mid-trip.
 
 ## Tech stack
 
@@ -606,6 +613,32 @@ see [CLEANUP.md](CLEANUP.md).
       given ETA already only recalculates every 2 minutes regardless).
       Also added a 2-character minimum before firing autocomplete, to skip
       billed calls on prefixes too short to be useful.
+- [x] Reworked incoming quick messages from a SnackBar to a centered
+      `AlertDialog` (`barrierDismissible: false`, with the preset's icon)
+      that stays up until the recipient taps OK - reported as "not
+      particularly clear, especially if someone is driving". Alerts queue
+      (`_pendingMessageAlerts`) and show one at a time so several messages
+      in quick succession don't stack or get lost. While in there, fixed a
+      real (pre-existing, not introduced by this change) bug in
+      `_onMessagesSnapshot`: the `messages.isEmpty` early-return ran before
+      the `_hasSeenMessages` gate, so a brand-new group's genuinely-empty
+      first snapshot never armed that gate - meaning the very first real
+      message anyone ever sent in a group got mistaken for the
+      pre-existing-messages baseline and silently swallowed instead of
+      shown. Verified live on two emulators: first message in a fresh
+      group now alerts correctly, and the dialog stays up until
+      acknowledged.
+- [x] Added a per-member low-battery warning: `MapScreen` checks this
+      device's own battery (`battery_plus`) every 2 minutes (plus once on
+      open), and the first time it's at or below 5%, broadcasts a warning
+      to the rest of the group through the same quick-message pipeline
+      (`GroupService.sendQuickMessage`) - so it shows as the same centered
+      alert dialog/push notification, with a battery icon, rather than a
+      separate notification path. Fires once per session
+      (`_lowBatteryWarned`, only set once the send actually succeeds so a
+      transient failure gets retried on the next tick) and never on the
+      low-battery device's own screen (same as a sender never seeing their
+      own quick message). Verified live on two emulators.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -640,9 +673,11 @@ see [CLEANUP.md](CLEANUP.md).
       avoids that vendor but needs a self-hosted TURN server and hits a
       real quality ceiling past ~4-6 simultaneous speakers (mesh
       topology), for meaningfully more effort and ongoing ops burden.
-- [ ] Per-member battery-level visibility (Life360/Find My both show
-      this) - a dead phone is the single most common reason a pin goes
-      stale, and knowing e.g. "Alex is at 8%" is actionable context the
-      group doesn't currently get. `LocationPoint`/`startSharing` would
-      need a `batteryLevel` field (Android/iOS both expose this to
-      Flutter via existing plugins) alongside the existing heading/speed.
+- [ ] Ambient per-member battery-level visibility (Life360/Find My both
+      show this) - a one-time 5%-or-below warning already exists (see
+      "Done" above), but there's still no ongoing "Alex is at 8%" display
+      for the group the way those apps show it continuously. Would need a
+      `batteryLevel` field on `LocationPoint`/`startSharing` (same
+      `battery_plus` plugin the warning above already uses) alongside the
+      existing heading/speed, plus a place to surface it (roster row?
+      marker badge?).

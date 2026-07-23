@@ -19,3 +19,13 @@ const quickMessagePresets = [
   QuickMessagePreset("I've lost you", Icons.help_outline),
   QuickMessagePreset('All good', Icons.check_circle_outline),
 ];
+
+/// Looks up the icon for a received message's text, if it matches one of
+/// the presets above - used to give the receiving side's alert the same
+/// icon the sender picked from, rather than a generic one.
+IconData? iconForQuickMessageText(String text) {
+  for (final preset in quickMessagePresets) {
+    if (preset.text == text) return preset.icon;
+  }
+  return null;
+}

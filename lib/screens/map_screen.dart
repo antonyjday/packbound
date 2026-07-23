@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' show min, max;
+import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -145,6 +146,21 @@ class _MapScreenState extends State<MapScreen> {
   StreamSubscription<List<GroupMessage>>? _messagesSub;
   bool _hasSeenMessages = false;
   DateTime? _lastSeenMessageAt;
+  final List<GroupMessage> _pendingMessageAlerts = [];
+  bool _messageAlertShowing = false;
+
+  // Broadcast once per session when this device's own battery drops to the
+  // threshold - reuses the quick-messages pipeline (Firestore write ->
+  // other devices' centered alert dialog, plus the existing
+  // notifyOnQuickMessage push for anyone backgrounded) rather than a
+  // separate notification path. _lowBatteryWarned is only set once the
+  // send actually succeeds, so a transient failure gets retried on the
+  // next tick instead of being silently given up on.
+  static const _lowBatteryThreshold = 5;
+  static const _lowBatteryMessageText = 'Battery is at 5% or below';
+  final Battery _battery = Battery();
+  Timer? _batteryCheckTicker;
+  bool _lowBatteryWarned = false;
 
   // Hard-cap expiry, kept in sync from the group doc listener so the
   // countdown/warning banner reflects extensions immediately.
@@ -176,6 +192,11 @@ class _MapScreenState extends State<MapScreen> {
     _staleTicker = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) setState(() {});
     });
+    _batteryCheckTicker = Timer.periodic(
+      const Duration(minutes: 2),
+      (_) => _maybeWarnLowBattery(),
+    );
+    _maybeWarnLowBattery();
     _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
       final offline =
           results.isEmpty || results.every((r) => r == ConnectivityResult.none);
@@ -889,6 +910,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _staleTicker?.cancel();
+    _batteryCheckTicker?.cancel();
     _connectivitySub?.cancel();
     _groupStatusSub?.cancel();
     _membershipSub?.cancel();
@@ -930,19 +952,26 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  /// Reacts to the quick-messages feed (see quick_messages.dart): pops a
-  /// SnackBar for anything sent after this screen opened, other than this
+  /// Reacts to the quick-messages feed (see quick_messages.dart): queues an
+  /// alert for anything sent after this screen opened, other than this
   /// device's own messages (the sender already knows they sent it).
-  /// `messages` is newest-first (see GroupService.messagesStream) - shown
-  /// oldest-to-newest so multiple SnackBars queue in reading order.
+  /// `messages` is newest-first (see GroupService.messagesStream) - queued
+  /// oldest-to-newest so multiple alerts show in reading order.
   void _onMessagesSnapshot(List<GroupMessage> messages) {
-    if (messages.isEmpty) return;
-
+    // The gate must run even on a genuinely empty first snapshot (a brand
+    // new group's message feed always starts empty) - otherwise that empty
+    // snapshot never arms _hasSeenMessages, and the very next snapshot (the
+    // first real message anyone sends) gets mistaken for the pre-existing
+    // baseline and silently marked "already seen" instead of alerted.
     if (!_hasSeenMessages) {
       _hasSeenMessages = true;
-      _lastSeenMessageAt = messages.first.sentAt.toDate();
+      if (messages.isNotEmpty) {
+        _lastSeenMessageAt = messages.first.sentAt.toDate();
+      }
       return;
     }
+
+    if (messages.isEmpty) return;
 
     final lastSeen = _lastSeenMessageAt;
     final newMessages = messages
@@ -950,19 +979,57 @@ class _MapScreenState extends State<MapScreen> {
         .where((m) => lastSeen == null || m.sentAt.toDate().isAfter(lastSeen))
         .toList()
         .reversed;
-
-    for (final m in newMessages) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${m.senderName}: ${m.text}'),
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      });
-    }
     _lastSeenMessageAt = messages.first.sentAt.toDate();
+
+    if (newMessages.isEmpty) return;
+    _pendingMessageAlerts.addAll(newMessages);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowNextMessageAlert());
+  }
+
+  /// Shows queued quick-message alerts one at a time, centered and requiring
+  /// an explicit tap to dismiss - a SnackBar was too easy to miss (and gone
+  /// before a driver glanced over), so this stays on screen until
+  /// acknowledged instead. `barrierDismissible: false` so a stray tap
+  /// elsewhere on the map can't dismiss it unnoticed.
+  void _maybeShowNextMessageAlert() {
+    if (_messageAlertShowing || _pendingMessageAlerts.isEmpty || !mounted) {
+      return;
+    }
+    final message = _pendingMessageAlerts.removeAt(0);
+    _messageAlertShowing = true;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        icon: Icon(
+          iconForQuickMessageText(message.text) ??
+              (message.text == _lowBatteryMessageText
+                  ? Icons.battery_alert
+                  : Icons.campaign),
+          size: 40,
+        ),
+        title: Text(message.senderName, textAlign: TextAlign.center),
+        content: Text(
+          message.text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 22),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              child: Text('OK', style: TextStyle(fontSize: 18)),
+            ),
+          ),
+        ],
+      ),
+    ).then((_) {
+      _messageAlertShowing = false;
+      _maybeShowNextMessageAlert();
+    });
   }
 
   Future<void> _sendQuickMessage(String text) async {
@@ -978,6 +1045,30 @@ class _MapScreenState extends State<MapScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
       }
+    }
+  }
+
+  /// Checks this device's own battery once per tick and, the first time it's
+  /// at or below [_lowBatteryThreshold], broadcasts a warning to the rest of
+  /// the group the same way a quick message would - see the field comments
+  /// above for why this piggybacks that pipeline instead of its own.
+  Future<void> _maybeWarnLowBattery() async {
+    if (_lowBatteryWarned || !mounted) return;
+
+    final level = await _battery.batteryLevel;
+    if (level > _lowBatteryThreshold) return;
+
+    final displayName = _authService.currentUser?.displayName ?? 'Someone';
+    try {
+      await _groupService.sendQuickMessage(
+        widget.group.id,
+        senderId: _authService.uid!,
+        senderName: displayName,
+        text: _lowBatteryMessageText,
+      );
+      _lowBatteryWarned = true;
+    } catch (_) {
+      // Best-effort - leave _lowBatteryWarned false so the next tick retries.
     }
   }
 

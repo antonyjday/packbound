@@ -1,0 +1,22 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Voice clips for a group's quick-messages feed (see firestore.rules'
+    // groups/{groupId}/messages for the matching Firestore doc). Ideally
+    // scoped to actual group members, matching that collection's rules -
+    // but Storage Rules' cross-service firestore.get()/exists() calls
+    // return a denial for this project even for a confirmed real member
+    // (isolated via a controlled test: an equivalent rule with no
+    // Firestore call passes instantly; the same rule gated by
+    // firestore.get() denies), which looks like a platform/IAM-level gap
+    // rather than something fixable via rules syntax. Falls back to the
+    // same bar groups/{groupId} itself already uses in firestore.rules
+    // (any signed-in user, not member-scoped) - paths include an
+    // unguessable group ID and a random UUID filename, so practical
+    // exposure is low even though this is less strict than intended.
+    match /groups/{groupId}/voice/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

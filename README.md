@@ -95,6 +95,13 @@ position on a shared map for the duration of the trip.
   on. Covers the app's own theme, the Google Map's tiles (a separate night-
   style JSON, since the map doesn't follow Material theming on its own),
   and the route-planning screen's map/search bar.
+- **Push-to-talk voice messages** — hold the mic button (bottom-right,
+  above the zoom controls) to record, release to send. Shares the quick-
+  messages feed/alert-dialog/push pipeline, auto-playing for the recipient
+  as soon as their alert appears. Store-and-forward (a Firebase Storage
+  upload + a Firestore doc), not live audio - chosen over a real-time
+  WebRTC/vendor approach for far less effort at the cost of a few seconds'
+  delivery delay, which doesn't matter much for short convoy call-outs.
 
 ## Tech stack
 
@@ -663,6 +670,38 @@ see [CLEANUP.md](CLEANUP.md).
       switched to `Theme.of(context).colorScheme.surface`. Verified live:
       toggle switches the whole app immediately (chrome, both maps,
       search bar), and the choice survives a full app restart.
+- [x] Added push-to-talk voice messages: `VoiceMessageService` (`record`
+      for capture, `firebase_storage` for upload, capped at 30s) plus a
+      hold-to-record mic button (bottom-right, above the zoom controls -
+      moved there from the top button row and enlarged after live
+      feedback). Deliberately store-and-forward rather than live audio -
+      considered first since it needed no new real-time infrastructure,
+      reusing the entire quick-messages pipeline instead: `GroupMessage`
+      gained optional `audioUrl`/`audioDurationSeconds` fields
+      (`isVoice` getter), `GroupService.sendVoiceMessage` writes to the
+      same `messages` subcollection, `notifyOnQuickMessage` sends "🎤 Voice
+      message" as the push body when `audioUrl` is set, and the receiving
+      alert dialog auto-plays the clip (`just_audio`) as soon as it
+      appears rather than requiring an extra tap. Required enabling
+      Firebase Storage for the first time on this project (previously
+      unused) and a new `storage.rules`.
+      Root-caused two real bugs during live testing: (1) a genuinely
+      hung-forever upload traced to a wrong assumption about the bucket
+      name (a red herring - the bucket name is an opaque identifier, not
+      a literal resolvable hostname, so the original DNS-based diagnosis
+      was wrong and had to be reverted); (2) storage.rules' cross-service
+      `firestore.get()`/`exists()` membership check reliably denies even
+      a real member on this project (isolated via a controlled REST test:
+      an equivalent rule with no Firestore call passes instantly, the
+      same rule gated by `firestore.get()` doesn't) - looks like a
+      platform/IAM-level gap rather than a rules-syntax bug, so
+      `storage.rules` falls back to `request.auth != null` (matching the
+      bar `groups/{groupId}` already uses in `firestore.rules`) rather
+      than member-scoping. `cleanupEndedGroupData` also now deletes a
+      group's voice clips from Storage when the group ends, alongside the
+      existing Firestore purge. Verified live end-to-end via REST
+      (upload + read-back) and on-device (record → alert dialog → auto-
+      play on a second device).
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a
@@ -687,8 +726,11 @@ see [CLEANUP.md](CLEANUP.md).
 
 **Future feature ideas (not started):**
 - [ ] In-app group voice call — a button to join a live audio call with
-      everyone currently in the convoy. A genuinely new capability class
-      (live media), not an extension of anything currently in the app.
+      everyone currently in the convoy. Push-to-talk (see "Done" above)
+      covers the "quick call-out" case with far less effort by staying
+      store-and-forward; this would be the genuinely live/simultaneous
+      version, a real capability class jump (live media), not an
+      extension of anything currently in the app.
       Realistic path: a managed service (LiveKit, Agora, etc.) via its
       Flutter SDK, with a small Cloud Function to mint join tokens and a
       join/leave/mute UI (~3-5 days) - handles multi-party audio mixing

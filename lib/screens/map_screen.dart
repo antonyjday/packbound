@@ -3,6 +3,7 @@ import 'dart:math' show min, max;
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,6 +16,7 @@ import '../services/directions_service.dart';
 import '../services/group_service.dart';
 import '../services/location_service.dart';
 import '../services/theme_service.dart';
+import '../services/voice_message_service.dart';
 import '../utils/map_styles.dart';
 import '../utils/member_colors.dart';
 import '../utils/navigation_progress.dart';
@@ -163,6 +165,10 @@ class _MapScreenState extends State<MapScreen> {
   final Battery _battery = Battery();
   Timer? _batteryCheckTicker;
   bool _lowBatteryWarned = false;
+
+  // Push-to-talk (see VoiceMessageService and the mic button in build()).
+  final _voiceMessageService = VoiceMessageService();
+  bool _recordingVoice = false;
 
   // Hard-cap expiry, kept in sync from the group doc listener so the
   // countdown/warning banner reflects extensions immediately.
@@ -913,6 +919,7 @@ class _MapScreenState extends State<MapScreen> {
   void dispose() {
     _staleTicker?.cancel();
     _batteryCheckTicker?.cancel();
+    _voiceMessageService.dispose();
     _connectivitySub?.cancel();
     _groupStatusSub?.cancel();
     _membershipSub?.cancel();
@@ -1000,23 +1007,42 @@ class _MapScreenState extends State<MapScreen> {
     final message = _pendingMessageAlerts.removeAt(0);
     _messageAlertShowing = true;
 
+    // Voice clips auto-play as soon as the dialog appears - the point of
+    // push-to-talk is hearing it immediately, not having to also tap play
+    // while driving. Playback stops (via dispose) the moment the dialog is
+    // dismissed, whether that's the OK button or (defensively) the screen
+    // going away mid-playback.
+    AudioPlayer? player;
+    if (message.isVoice) {
+      player = AudioPlayer();
+      player.setUrl(message.audioUrl!).then((_) => player?.play()).catchError((_) {});
+    }
+
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         icon: Icon(
-          iconForQuickMessageText(message.text) ??
-              (message.text == _lowBatteryMessageText
-                  ? Icons.battery_alert
-                  : Icons.campaign),
+          message.isVoice
+              ? Icons.mic
+              : (iconForQuickMessageText(message.text) ??
+                  (message.text == _lowBatteryMessageText
+                      ? Icons.battery_alert
+                      : Icons.campaign)),
           size: 40,
         ),
         title: Text(message.senderName, textAlign: TextAlign.center),
-        content: Text(
-          message.text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 22),
-        ),
+        content: message.isVoice
+            ? Text(
+                'Voice message (${message.audioDurationSeconds ?? 0}s)',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 18),
+              )
+            : Text(
+                message.text,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 22),
+              ),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
           FilledButton(
@@ -1029,9 +1055,71 @@ class _MapScreenState extends State<MapScreen> {
         ],
       ),
     ).then((_) {
+      player?.dispose();
       _messageAlertShowing = false;
       _maybeShowNextMessageAlert();
     });
+  }
+
+  Future<void> _startPushToTalk() async {
+    if (_recordingVoice) return;
+    final granted = await _voiceMessageService.hasPermission();
+    if (!granted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Microphone permission is needed to send voice messages'),
+          ),
+        );
+      }
+      return;
+    }
+    try {
+      await _voiceMessageService.startRecording();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+      return;
+    }
+    if (mounted) setState(() => _recordingVoice = true);
+  }
+
+  Future<void> _stopAndSendPushToTalk() async {
+    if (!_recordingVoice) return;
+    setState(() => _recordingVoice = false);
+
+    ({String url, int durationSeconds})? result;
+    try {
+      result = await _voiceMessageService.stopAndUpload(widget.group.id);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+      return;
+    }
+    if (result == null) return; // too short to be a real message - dropped
+
+    final displayName = _authService.currentUser?.displayName ?? 'Someone';
+    try {
+      await _groupService.sendVoiceMessage(
+        widget.group.id,
+        senderId: _authService.uid!,
+        senderName: displayName,
+        audioUrl: result.url,
+        audioDurationSeconds: result.durationSeconds,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
+  void _cancelPushToTalk() {
+    if (!_recordingVoice) return;
+    setState(() => _recordingVoice = false);
+    _voiceMessageService.cancelRecording();
   }
 
   Future<void> _sendQuickMessage(String text) async {
@@ -1807,6 +1895,49 @@ class _MapScreenState extends State<MapScreen> {
                         onPressed: _showQuickMessageSheet,
                         tooltip: 'Send a quick message',
                         child: const Icon(Icons.campaign),
+                      ),
+                    ),
+
+                    // Push-to-talk - press and hold to record, release to
+                    // send as a voice clip (see VoiceMessageService); a
+                    // plain GestureDetector rather than a FloatingActionButton
+                    // since a FAB only exposes a single onPressed, not
+                    // distinct press-start/press-end callbacks. Bottom-right,
+                    // just above the Google Maps zoom controls (which sit
+                    // flush with the bottom edge - see the route-info chip
+                    // stack's bottom:4 comment below for that reference
+                    // point) rather than the top button row, since a driver
+                    // reaching for "hold to talk" repeatedly benefits from
+                    // it being right above where their thumb already rests
+                    // near the zoom controls.
+                    Positioned(
+                      bottom: 130,
+                      right: 12,
+                      child: GestureDetector(
+                        onTapDown: (_) => _startPushToTalk(),
+                        onTapUp: (_) => _stopAndSendPushToTalk(),
+                        onTapCancel: _cancelPushToTalk,
+                        child: Material(
+                          color: _recordingVoice
+                              ? Colors.red
+                              : Theme.of(context).colorScheme.secondaryContainer,
+                          shape: const CircleBorder(),
+                          elevation: 4,
+                          child: Tooltip(
+                            message: 'Hold to record a voice message',
+                            child: SizedBox(
+                              width: 56,
+                              height: 56,
+                              child: Icon(
+                                Icons.mic,
+                                size: 28,
+                                color: _recordingVoice
+                                    ? Colors.white
+                                    : Theme.of(context).colorScheme.onSecondaryContainer,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
 

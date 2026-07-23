@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
+import { getStorage } from 'firebase-admin/storage';
 import { onDocumentWritten, onDocumentUpdated, onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
@@ -239,9 +240,15 @@ export const cleanupEndedGroupData = onDocumentUpdated('groups/{groupId}', async
   await Promise.all([
     db.recursiveDelete(groupRef.collection('locations')),
     db.recursiveDelete(groupRef.collection('messages')),
+    // Voice clips (see VoiceMessageService) live in Storage, not
+    // Firestore - recursiveDelete above only clears the message docs
+    // that reference them, so the audio files need deleting separately
+    // or they'd linger in Storage forever.
+    getStorage().bucket().deleteFiles({ prefix: `groups/${groupId}/voice/` })
+      .catch((err) => logger.warn(`cleanupEndedGroupData: voice clip cleanup failed for group ${groupId}`, err)),
   ]);
 
-  logger.info(`cleanupEndedGroupData: purged locations/messages for group ${groupId}`);
+  logger.info(`cleanupEndedGroupData: purged locations/messages/voice for group ${groupId}`);
 });
 
 /**
@@ -382,7 +389,7 @@ export const notifyOnQuickMessage = onDocumentCreated(
     const { groupId } = event.params;
     await sendPushToGroupMembers(groupId, {
       title: message.senderName ?? 'New message',
-      body: message.text ?? '',
+      body: message.audioUrl ? '🎤 Voice message' : (message.text ?? ''),
       excludeUid: message.senderId,
     });
   }

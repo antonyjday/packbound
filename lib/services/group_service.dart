@@ -283,6 +283,28 @@ class GroupService {
     });
   }
 
+  /// Broadcasts a voice clip (push-to-talk) to the group - same feed,
+  /// rules, and notifyOnQuickMessage push as sendQuickMessage above; the
+  /// recording/upload itself happens first via VoiceMessageService, this
+  /// just writes the resulting doc. `text` stays empty since senders/
+  /// listeners branch on GroupMessage.isVoice instead.
+  Future<void> sendVoiceMessage(
+    String groupId, {
+    required String senderId,
+    required String senderName,
+    required String audioUrl,
+    required int audioDurationSeconds,
+  }) {
+    return _db.collection('groups').doc(groupId).collection('messages').add({
+      'senderId': senderId,
+      'senderName': senderName,
+      'text': '',
+      'audioUrl': audioUrl,
+      'audioDurationSeconds': audioDurationSeconds,
+      'sentAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   /// Most recent quick-messages, newest first - MapScreen only needs
   /// enough to notice something new arrived (see _onMessagesSnapshot),
   /// not a scrollable history, hence the small limit.

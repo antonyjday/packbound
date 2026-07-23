@@ -1954,7 +1954,17 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ),
 
-                    // Roster button - badges with a count if anyone's signal is lost
+                    // Roster/refit/recenter/step/skip - stacked vertically
+                    // down the right edge (was a horizontal row at a fixed
+                    // top:12, spread right:12/68/124/180/236) since that
+                    // absolute-width layout had nowhere to go on a narrower
+                    // effective screen width - a smaller device, or Android's
+                    // "Display size" zoom accessibility setting shrinking the
+                    // usable logical width, made these buttons start
+                    // overlapping each other. Portrait phones have far more
+                    // vertical slack than horizontal, so a vertical stack
+                    // (same idea as Google's own zoom controls) sidesteps the
+                    // problem entirely instead of fine-tuning pixel offsets.
                     Positioned(
                       top: 12,
                       right: 12,
@@ -1973,8 +1983,8 @@ class _MapScreenState extends State<MapScreen> {
                     // Manual re-fit - lets users recenter on the whole group
                     // after they've panned/zoomed away from the auto-fit view.
                     Positioned(
-                      top: 12,
-                      right: 68,
+                      top: 68,
+                      right: 12,
                       child: FloatingActionButton.small(
                         heroTag: 'refit',
                         onPressed: () {
@@ -1988,8 +1998,8 @@ class _MapScreenState extends State<MapScreen> {
                     // Jumps straight to this device's own current position -
                     // see _recenterOnMe.
                     Positioned(
-                      top: 12,
-                      right: 124,
+                      top: 124,
+                      right: 12,
                       child: FloatingActionButton.small(
                         heroTag: 'recenterOnMe',
                         onPressed: () => _recenterOnMe(points),
@@ -2006,8 +2016,8 @@ class _MapScreenState extends State<MapScreen> {
                     // a near-duplicate of the skip-ahead button below.
                     if (route != null)
                       Positioned(
-                        top: 12,
-                        right: 180,
+                        top: 180,
+                        right: 12,
                         child: FloatingActionButton.small(
                           heroTag: 'stepRoute',
                           onPressed: () => _stepThroughRoute(route, points),
@@ -2026,8 +2036,8 @@ class _MapScreenState extends State<MapScreen> {
                     // changes the actual route/ETA, not just the camera.
                     if (route != null)
                       Positioned(
-                        top: 12,
-                        right: 236,
+                        top: 236,
+                        right: 12,
                         child: FloatingActionButton.small(
                           heroTag: 'skipRouteLeg',
                           onPressed: () => _toggleSkipRouteLeg(route, points),

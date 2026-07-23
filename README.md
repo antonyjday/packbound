@@ -732,6 +732,19 @@ see [CLEANUP.md](CLEANUP.md).
       is actually on (toggled via a new `_setSharing` helper covering all
       four places sharing turns on/off), not for the whole time the map
       screen is open.
+- [x] The top-right button row (roster/refit/"My location"/step-route/
+      skip-route, up to 5 buttons) was laid out horizontally via
+      hardcoded `right: 12/68/124/180/236` - fine at normal density, but
+      reported as buttons "stacked on top of each other" on a smaller
+      device or with Android's "Display size" accessibility zoom setting
+      turned up (both effectively shrink the usable logical-pixel width).
+      Switched to a vertical stack down the right edge (same `right: 12`,
+      `top: 12/68/124/180/236` instead) - portrait phones have far more
+      vertical slack than horizontal, so this sidesteps the width
+      constraint entirely rather than fine-tuning pixel offsets. Verified
+      by reproducing the exact scenario: bumped emulator density from
+      420 to 560 (`adb shell wm density 560`, matching a "Display size"
+      zoom bump) - confirmed all 5 buttons stack cleanly with no overlap.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

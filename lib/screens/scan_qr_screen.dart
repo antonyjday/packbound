@@ -47,7 +47,36 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
       ),
       body: Stack(
         children: [
-          MobileScanner(controller: _controller, onDetect: _onDetect),
+          MobileScanner(
+            controller: _controller,
+            onDetect: _onDetect,
+            // mobile_scanner's default error view is just a bare
+            // Icons.error with no detail at all when the camera fails to
+            // start - surface the actual exception so a real failure
+            // (permission, camera in use, unsupported device, ...) is
+            // diagnosable instead of a silent question mark.
+            errorBuilder: (context, error, child) => ColoredBox(
+              color: Colors.black,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error, color: Colors.white, size: 48),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Camera error: ${error.errorCode.name}'
+                        '${error.errorDetails?.message != null ? '\n${error.errorDetails!.message}' : ''}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
           // Simple viewfinder frame overlay so it's obvious where to point.
           Center(
             child: Container(

@@ -702,6 +702,31 @@ see [CLEANUP.md](CLEANUP.md).
       existing Firestore purge. Verified live end-to-end via REST
       (upload + read-back) and on-device (record → alert dialog → auto-
       play on a second device).
+- [x] The QR scanner (`scan_qr_screen.dart`) showed a bare `Icons.error`
+      with zero detail whenever the camera failed to start on a real
+      device - reported as "just an exclamation mark in a circle" after
+      granting camera permission. `mobile_scanner`'s default error view
+      doesn't surface anything from the underlying
+      `MobileScannerException`; added an `errorBuilder` that shows the
+      actual error code/message so the next occurrence is diagnosable
+      (root cause not yet identified - awaiting the real error text from
+      a retry).
+- [x] Fixed two real-device issues found during testing:
+      1. Members standing still got wrongly marked "signal lost" - the
+      `distanceFilter`-based position stream (see the API-efficiency pass
+      above) produces zero events at all while stationary, so
+      `updatedAt` goes stale and trips `SignalStatus.lost` after just 60s
+      (`LocationPoint.status`) even though the member is still actively
+      sharing. Added a 20s heartbeat timer in `LocationService` that
+      re-sends the last known position regardless of movement, comfortably
+      under both that 60s client-side cutoff and the server-side
+      `notifyLostSignals` sweep's 5-minute one.
+      2. The phone auto-locked mid-trip, worse than a normal nav app since
+      a stationary/idle device has no touch input to reset the screen
+      timeout either. Added `wakelock_plus`, enabled only while `_sharing`
+      is actually on (toggled via a new `_setSharing` helper covering all
+      four places sharing turns on/off), not for the whole time the map
+      screen is open.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

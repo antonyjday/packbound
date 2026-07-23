@@ -4,6 +4,7 @@ import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -277,7 +278,7 @@ class _MapScreenState extends State<MapScreen> {
               _groupEnded = true;
               await _locationService.stopSharing();
               if (mounted) {
-                setState(() => _sharing = false);
+                _setSharing(false);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text(
@@ -562,7 +563,7 @@ class _MapScreenState extends State<MapScreen> {
 
     await _locationService.stopSharing();
     if (!mounted) return;
-    setState(() => _sharing = false);
+    _setSharing(false);
 
     await showDialog<void>(
       context: context,
@@ -925,6 +926,7 @@ class _MapScreenState extends State<MapScreen> {
     _membershipSub?.cancel();
     _messagesSub?.cancel();
     _locationService.stopSharing();
+    if (_sharing) WakelockPlus.disable();
     super.dispose();
   }
 
@@ -1195,10 +1197,21 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  /// Keeps the screen from auto-locking while actively sharing/navigating -
+  /// on a real device the phone would otherwise dim and lock like normal
+  /// mid-trip (worse if the device is sitting still, since there's no
+  /// touch input to reset the screen timeout either), which isn't what
+  /// you want from a driving companion app. Only on while _sharing is
+  /// actually true, not for the whole time this screen is open.
+  void _setSharing(bool value) {
+    setState(() => _sharing = value);
+    WakelockPlus.toggle(enable: value);
+  }
+
   Future<void> _toggleSharing() async {
     if (_sharing) {
       await _locationService.stopSharing();
-      setState(() => _sharing = false);
+      _setSharing(false);
       return;
     }
 
@@ -1225,7 +1238,7 @@ class _MapScreenState extends State<MapScreen> {
         userId: _authService.uid!,
         displayName: _authService.currentUser?.displayName ?? 'Me',
       );
-      setState(() => _sharing = true);
+      _setSharing(true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

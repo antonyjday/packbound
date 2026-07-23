@@ -7,6 +7,17 @@ import '../models/location_point.dart';
 class LocationService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   StreamSubscription<Position>? _positionSub;
+  Timer? _heartbeatTimer;
+  Position? _lastPosition;
+
+  /// How often to re-send the last known position even without movement.
+  /// distanceFilter means a stationary device produces no position-stream
+  /// events at all, so without this a member standing still for over a
+  /// minute would flip to SignalStatus.lost (see LocationPoint.status) -
+  /// looking to everyone else like their signal actually dropped, when
+  /// they're still right there. Comfortably under both that 60s cutoff
+  /// and the server-side notifyLostSignals sweep's 5-minute one.
+  static const _heartbeatInterval = Duration(seconds: 20);
 
   /// Checks current permission status WITHOUT triggering an OS prompt.
   /// Use this to decide whether to show an explainer before asking.
@@ -99,32 +110,42 @@ class LocationService {
 
     final settings = _platformSettings(distanceFilterMeters);
 
-    _positionSub =
-        Geolocator.getPositionStream(locationSettings: settings).listen(
-      (Position pos) {
-        final point = LocationPoint(
-          userId: userId,
-          displayName: displayName,
-          lat: pos.latitude,
-          lng: pos.longitude,
-          heading: pos.heading,
-          speed: pos.speed,
-          updatedAt: Timestamp.now(),
-        );
+    void writePosition(Position pos) {
+      _lastPosition = pos;
+      final point = LocationPoint(
+        userId: userId,
+        displayName: displayName,
+        lat: pos.latitude,
+        lng: pos.longitude,
+        heading: pos.heading,
+        speed: pos.speed,
+        updatedAt: Timestamp.now(),
+      );
 
-        _db
-            .collection('groups')
-            .doc(groupId)
-            .collection('locations')
-            .doc(userId)
-            .set(point.toMap(), SetOptions(merge: true));
-      },
-    );
+      _db
+          .collection('groups')
+          .doc(groupId)
+          .collection('locations')
+          .doc(userId)
+          .set(point.toMap(), SetOptions(merge: true));
+    }
+
+    _positionSub = Geolocator.getPositionStream(
+      locationSettings: settings,
+    ).listen(writePosition);
+
+    _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) {
+      final last = _lastPosition;
+      if (last != null) writePosition(last);
+    });
   }
 
   Future<void> stopSharing() async {
     await _positionSub?.cancel();
     _positionSub = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    _lastPosition = null;
   }
 
   /// Live stream of every member's location within a group.

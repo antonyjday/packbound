@@ -13,9 +13,9 @@ class DirectionsService {
   // Same Android-restricted Maps key already used for the map tiles
   // (android/app/src/main/AndroidManifest.xml) - also allow-listed for the
   // Directions API, so the same key works for both.
-  static const _apiKey = 'AIzaSyAmylfZB3RZCB5TcIJ3g63nk_t2IKRiSX4';
+  static const _apiKey = 'AIzaSyC1AvTuEWbVH0aELNYfPXdwncynWnGFCI0';
   static const _androidPackage = 'net.packbound.app';
-  static const _androidCertSha1 = 'EF3D285E4E29E32701475DFBED5B113403E47B68';
+  static const _androidCertSha1 = 'CD1AC77CA5CBAF0D6D8DEFA83CEB4D7DA999C289';
 
   Future<RoutePlan> route({
     required RouteStop origin,

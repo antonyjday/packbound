@@ -766,11 +766,17 @@ see [CLEANUP.md](CLEANUP.md).
       deep-link scheme is now `packbound://join/CODE` (was `convoy://`).
       Did NOT touch the Dart package name (`convoy_app` in
       `pubspec.yaml`) or iOS - see the TODOs below for why.
-      **Still needed**: the Google Maps API key's Android restriction
-      (package name + SHA-1) needs `net.packbound.app` added in Google
-      Cloud Console, or Maps/Directions/Places calls will start failing
-      once that key is actually enforcing restrictions - this can only
-      be done from the console, not via CLI from here.
+      Confirmed the old key's Android restriction was the blocker (black
+      map, `Authorization failure` in logcat naming exactly
+      `net.packbound.app` as missing from its allow-list); rather than
+      edit that restriction, a new key (named "packbound.net") was
+      issued and swapped in (`AndroidManifest.xml`,
+      `DirectionsService`/`PlacesService`). While in there, also fixed a
+      pre-existing bug: both services' `_androidCertSha1` constant
+      (`EF3D285E...`) didn't match the actual debug keystore fingerprint
+      at all (verified via `keytool -list`) - corrected to the real
+      value. Verified live on two emulators: Maps tiles, route polyline,
+      and turn-by-turn all render correctly under the new key.
 
 **Needed before this is usable end-to-end:**
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

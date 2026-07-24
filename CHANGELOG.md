@@ -738,6 +738,19 @@ list see [README.md](README.md).
       route" (via the new CTA button above) and confirmed both the
       camera's default zoom and the saved route now genuinely reflect Bike
       rather than the stale Car value.
+- [x] Test suite audit after the trip-type work above: added
+      `test/services/directions_service_test.dart` covering the new
+      `waypointsForMode` helper (extracted from `DirectionsService.route`
+      specifically so the transit-drops-waypoints rule is unit-testable
+      without a live network call - see the stale-tripType bug fix above,
+      which was exactly this class of routing-logic bug) and
+      `test/models/group_message_test.dart` (previously untested despite
+      the push-to-talk feature adding `isVoice`/`audioUrl`/
+      `audioDurationSeconds`). No existing tests were found stale/removed -
+      the rest of the suite (member colors, navigation/route progress,
+      polyline codec, invite links, location point status) is unrelated to
+      recent UI/branding/trip-type work and still accurately reflects
+      current behavior. 115 Dart tests total now.
 
 ## Needed before this is usable end-to-end
 

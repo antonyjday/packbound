@@ -4,6 +4,15 @@ import 'package:http/http.dart' as http;
 import '../models/route_plan.dart';
 import '../utils/polyline_codec.dart';
 
+/// The Directions API flatly does not support the waypoints parameter for
+/// transit directions (a train trip) - it returns INVALID_REQUEST if both
+/// are present. Rather than fail the whole route, [DirectionsService.route]
+/// silently routes origin-to-destination only for transit; waypoints still
+/// apply for every other mode. A standalone top-level function so this
+/// exact rule is unit-testable without a live network call.
+List<RouteStop> waypointsForMode(String mode, List<RouteStop> waypoints) =>
+    mode == 'transit' ? const <RouteStop>[] : waypoints;
+
 /// Calls the (legacy) Directions API to turn an origin/destination/ordered
 /// waypoints into an actual route for the group's trip type (see
 /// trip_type.dart's directionsMode). Used once, on the setting device, when
@@ -24,12 +33,7 @@ class DirectionsService {
     required List<RouteStop> waypoints,
     String mode = 'driving',
   }) async {
-    // The Directions API flatly does not support the waypoints parameter
-    // for transit directions (a train trip) - it returns INVALID_REQUEST if
-    // both are present. Rather than fail the whole route, silently route
-    // origin-to-destination only for transit; waypoints still apply for
-    // every other mode.
-    final effectiveWaypoints = mode == 'transit' ? const <RouteStop>[] : waypoints;
+    final effectiveWaypoints = waypointsForMode(mode, waypoints);
     final params = {
       'origin': '${origin.lat},${origin.lng}',
       'destination': '${destination.lat},${destination.lng}',

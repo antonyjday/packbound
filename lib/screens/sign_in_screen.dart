@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../services/auth_service.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -38,9 +39,13 @@ class _SignInScreenState extends State<SignInScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.route, size: 64, color: Colors.deepOrange),
+              SvgPicture.asset(
+                'assets/branding/packbound-icon.svg',
+                width: 72,
+                height: 72,
+              ),
               const SizedBox(height: 16),
-              const Text('Packbound', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+              Text('Packbound', style: Theme.of(context).textTheme.headlineMedium),
               const SizedBox(height: 8),
               const Text('Share your location with your travel group'),
               const SizedBox(height: 32),

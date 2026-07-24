@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/location_service.dart';
+import '../utils/brand_colors.dart';
 
 /// Shown once, before the OS permission dialog, so the user understands
 /// *why* Packbound wants their location and *who* can see it before the
@@ -61,7 +62,7 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.deepOrange),
+          Icon(icon, color: BrandColors.coral),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -88,7 +89,7 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 16),
-              const Icon(Icons.my_location, size: 56, color: Colors.deepOrange),
+              const Icon(Icons.my_location, size: 56, color: BrandColors.coral),
               const SizedBox(height: 16),
               Text(
                 'Share your location with "${widget.groupName}"',

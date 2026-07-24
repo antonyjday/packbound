@@ -119,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Text('Start a new convoy', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text('Start a new trip', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           TextField(
             controller: _groupNameController,
@@ -136,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 40),
           const Divider(),
           const SizedBox(height: 24),
-          const Text('Join an existing convoy', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text('Join an existing trip', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           TextField(
             controller: _inviteCodeController,

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Packbound — Brand Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#241E45; --ink-soft:#4A4470;
+    --coral:#FF5A5F; --teal:#17BEBB; --amber:#FFC145;
+    --surface:#F6F4FF; --paper:#FFFFFF; --line: rgba(36,30,69,0.12);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:'Inter',sans-serif; background:var(--paper); color:var(--ink); line-height:1.5; }
+  .display{ font-family:'Space Grotesk',sans-serif; }
+  section{ padding: 64px 8vw; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:14px; }
+  .hero{ background:var(--ink); color:var(--paper); padding: 90px 8vw 80px; position:relative; overflow:hidden; }
+  .hero::after{ content:""; position:absolute; right:-120px; top:-120px; width:420px; height:420px; border-radius:50%; background:radial-gradient(circle, rgba(255,90,95,0.25), transparent 70%); }
+  .hero .eyebrow{ color:#B7ADEB; position:relative; }
+  .lockup{ display:flex; align-items:center; gap:22px; margin-bottom:36px; position:relative; }
+  .lockup svg{ height:80px; width:auto; }
+  .hero h1{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size: clamp(34px, 4.4vw, 58px); letter-spacing:-0.02em; max-width: 16ch; line-height:1.05; position:relative; }
+  .hero p{ margin-top:22px; max-width:48ch; color:#D7D2F2; font-size:17px; position:relative; }
+  .swatch-row{ display:flex; gap:10px; margin-top:44px; position:relative; }
+  .chip{ width:34px; height:34px; border-radius:10px; }
+  .signature{ display:grid; grid-template-columns: 1fr 1.4fr; gap:56px; align-items:center; border-bottom:1px solid var(--line); }
+  .signature .mark-large{ background:var(--ink); border-radius:28px; padding:48px; display:flex; align-items:center; justify-content:center; }
+  .signature .mark-large svg{ width:100%; max-width:220px; }
+  .signature h2{ font-family:'Space Grotesk',sans-serif; font-size:28px; margin-bottom:16px; letter-spacing:-0.01em; }
+  .signature p{ max-width:52ch; color:var(--ink-soft); font-size:16px; }
+  .signature p + p{ margin-top:14px; }
+  .signature b{ color:var(--ink); }
+  .color-grid{ display:grid; grid-template-columns: repeat(5,1fr); gap:16px; margin-top:36px; }
+  .color-card{ border-radius:16px; overflow:hidden; border:1px solid var(--line); }
+  .color-fill{ height:110px; }
+  .color-meta{ padding:14px 14px 16px; background:var(--paper); }
+  .color-meta .name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; }
+  .color-meta .hex{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .color-meta .use{ font-size:12px; color:var(--ink-soft); margin-top:8px; }
+  .type-row{ display:flex; justify-content:space-between; align-items:baseline; padding:22px 0; border-bottom:1px solid var(--line); gap: 20px; }
+  .type-row:first-of-type{ border-top:1px solid var(--line); }
+  .type-sample-display{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:42px; letter-spacing:-0.01em; }
+  .type-sample-body{ font-family:'Inter',sans-serif; font-size:22px; }
+  .type-sample-mono{ font-family:'IBM Plex Mono',monospace; font-size:20px; color:var(--coral); }
+  .type-label{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.1em; min-width:180px; }
+  .icon-grid{ display:flex; gap:28px; align-items:flex-end; margin-top:36px; flex-wrap:wrap; }
+  .icon-tile .box{ background:var(--ink); border-radius:22%; display:flex; align-items:center; justify-content:center; box-shadow: 0 14px 26px -10px rgba(36,30,69,0.45); }
+  .icon-tile .label{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft); margin-top:10px; text-align:center; }
+  .usage-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:24px; margin-top:36px; }
+  .usage-card{ border-radius:18px; padding:44px; display:flex; align-items:center; justify-content:center; }
+  .usage-card.on-light{ background:var(--surface); }
+  .usage-card.on-dark{ background:var(--ink); }
+  .usage-card svg{ height:44px; width:auto; }
+  .app-mock{ margin-top:36px; background:var(--ink); border-radius:28px; padding:22px 22px 40px; max-width:340px; }
+  .app-mock .topbar{ display:flex; align-items:center; gap:12px; padding:6px 4px 22px; }
+  .app-mock .topbar svg{ height:26px; width:auto; }
+  .app-mock .card{ background:var(--paper); border-radius:16px; padding:18px; }
+  .app-mock .card .row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); }
+  .app-mock .card .row:last-child{ border-bottom:none; }
+  .app-mock .name{ font-family:'Inter',sans-serif; font-weight:600; font-size:14px; }
+  .app-mock .eta{ font-family:'IBM Plex Mono',monospace; font-size:13px; }
+  .dot{ width:9px; height:9px; border-radius:50%; display:inline-block; margin-right:8px; }
+  .cta{ display:inline-block; margin-top:16px; background:var(--coral); color:white; font-family:'Inter',sans-serif; font-weight:600; font-size:13px; padding:10px 18px; border-radius:10px; }
+  footer{ padding:40px 8vw 60px; color:var(--ink-soft); font-size:13px; font-family:'IBM Plex Mono',monospace; }
+</style>
+</head>
+<body>
+
+  <section class="hero">
+    <div class="eyebrow">Brand Identity — v5, recentred icon, halo-free logo</div>
+    <div class="lockup">
+      <svg viewBox="0 0 300 300" style="height:80px;"><rect x="0" y="0" width="300" height="300" rx="64" fill="#241E45"/><g transform="translate(12.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#0F7C79"/></g></g><g transform="translate(128.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A67E2D"/></g></g><g transform="translate(54,72)"><g transform="scale(8.0)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FF5A5F"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A63A3E"/></g></g></svg>
+    </div>
+    <h1>packbound</h1>
+    <p>Live location for your whole travel pack. The exact pin you already read on a map, in three — teal and amber levelled behind, coral leading out front.</p>
+    <div class="swatch-row">
+      <div class="chip" style="background:#FF5A5F"></div>
+      <div class="chip" style="background:#17BEBB"></div>
+      <div class="chip" style="background:#FFC145"></div>
+      <div class="chip" style="background:#F6F4FF; border:1px solid rgba(255,255,255,0.3)"></div>
+    </div>
+  </section>
+
+  <section class="signature">
+    <div class="mark-large">
+      <svg viewBox="0 0 300 300"><g transform="translate(12.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#0F7C79"/></g></g><g transform="translate(128.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A67E2D"/></g></g><g transform="translate(54,72)"><g transform="scale(8.0)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FF5A5F"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A63A3E"/></g></g></svg>
+    </div>
+    <div>
+      <div class="eyebrow">The Signature Mark</div>
+      <h2>The real pin, not an abstraction</h2>
+      <p>Each marker follows the classic map-pin construction people already trust: a solid colour teardrop, a white ring, and a darker centre dot in the same hue. Nothing invented, nothing to learn.</p>
+      <p>Three of them, one composition: <b>coral leads</b>, centred and closest. <b>Teal and amber sit level</b> behind it, side by side — equal packmates, not a queue. Simple shapes, three colours, no extra ornament — and now properly centred with even breathing room on every side.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Color</div>
+    <h2 class="display" style="font-size:28px; letter-spacing:-0.01em;">Four colours, no more</h2>
+    <div class="color-grid">
+      <div class="color-card"><div class="color-fill" style="background:#241E45"></div><div class="color-meta"><div class="name">Ink</div><div class="hex">#241E45</div><div class="use">Base, dark surfaces, icon ground</div></div></div>
+      <div class="color-card"><div class="color-fill" style="background:#FF5A5F"></div><div class="color-meta"><div class="name">Coral</div><div class="hex">#FF5A5F</div><div class="use">Leader marker, primary CTA</div></div></div>
+      <div class="color-card"><div class="color-fill" style="background:#17BEBB"></div><div class="color-meta"><div class="name">Teal</div><div class="hex">#17BEBB</div><div class="use">Packmate marker, success states</div></div></div>
+      <div class="color-card"><div class="color-fill" style="background:#FFC145"></div><div class="color-meta"><div class="name">Amber</div><div class="hex">#FFC145</div><div class="use">Packmate marker, alerts</div></div></div>
+      <div class="color-card"><div class="color-fill" style="background:#F6F4FF; border-bottom:1px solid var(--line)"></div><div class="color-meta"><div class="name">Surface</div><div class="hex">#F6F4FF</div><div class="use">App background, cards</div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">In-App Marker Colours</div>
+    <h2 class="display" style="font-size:28px; letter-spacing:-0.01em;">A separate palette for real map pins</h2>
+    <p style="max-width:60ch; color:var(--ink-soft); font-size:15px; margin-bottom:28px;">The logo's coral/teal/amber is fixed brand identity — it doesn't change. But the <b style="color:var(--ink);">live map markers each pack member actually sees</b> are limited to the platform's built-in marker hues: <b style="color:var(--ink);">Red, Orange, Yellow, Cyan, Blue, Magenta, Rose</b>. That's a technical constraint (default map SDK marker icons only tint to these seven), not a brand choice, so it's documented separately here rather than folded into the palette above.</p>
+    <div class="color-grid" style="grid-template-columns: repeat(7,1fr);">
+      <div class="color-card"><div class="color-fill" style="background:#EA4335"></div><div class="color-meta"><div class="name">Red</div><div class="hex">#EA4335</div><div class="use">Reserved for the trip leader</div></div></div>
+      <div class="color-card"><div class="color-fill" style="background:#EA9035"></div><div class="color-meta"><div class="name">Orange</div><div class="hex">#EA9035</div><div class="use">Packmate 1</div></div></div>
+      <div class="color-card"><div class="color-fill" style="background:#EAEA35"></div><div class="color-meta"><div class="name">Yellow</div><div class="hex">#EAEA35</div><div class="use">Packmate 2</div></div></div>
+      <div class="color-card"><div class="color-fill" style="background:#35EAEA"></div><div class="color-meta"><div class="name">Cyan</div><div class="hex">#35EAEA</div><div class="use">Packmate 3</div></div></div>
+      <div class="color-card"><div class="color-fill" style="background:#3535EA"></div><div class="color-meta"><div class="name">Blue</div><div class="hex">#3535EA</div><div class="use">Packmate 4</div></div></div>
+      <div class="color-card"><div class="color-fill" style="background:#EA35EA"></div><div class="color-meta"><div class="name">Magenta</div><div class="hex">#EA35EA</div><div class="use">Packmate 5</div></div></div>
+      <div class="color-card"><div class="color-fill" style="background:#EA3590"></div><div class="color-meta"><div class="name">Rose</div><div class="hex">#EA3590</div><div class="use">Packmate 6</div></div></div>
+    </div>
+    <p style="max-width:60ch; color:var(--ink-soft); font-size:13px; margin-top:18px;">These are softened to match what actually renders on the map rather than pure digital hues. <b style="color:var(--ink);">Red</b> is anchored to Google's own sampled pointer colour (#EA4335); the other six are the same tone rotated round the colour wheel, since Google doesn't publish exact values for the rest — worth a quick eyedropper check against a real device screenshot before this is final. <b style="color:var(--ink);">Red</b> is reserved for whoever is leading, echoing the logo's coral lead marker; the other six assign to packmates in the order shown, cycling if a group runs past seven people.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">Typography</div>
+    <h2 class="display" style="font-size:28px; letter-spacing:-0.01em;">Bold shapes, bright accents</h2>
+    <div class="type-row"><span class="type-label">Display — Space Grotesk 700</span><span class="type-sample-display">Everyone's found</span></div>
+    <div class="type-row"><span class="type-label">Body — Inter 400/600</span><span class="type-sample-body">Sam's pin just went orange — she's stopped for gas.</span></div>
+    <div class="type-row"><span class="type-label">Data / Mono — IBM Plex Mono</span><span class="type-sample-mono">ETA 14:32 · 2.1 mi back</span></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">App Icon</div>
+    <h2 class="display" style="font-size:28px; letter-spacing:-0.01em;">Centred, with room to breathe</h2>
+    <div class="icon-grid">
+      <div class="icon-tile"><div class="box" style="width:120px;height:120px;"><svg viewBox="0 0 300 300" width="120" height="120"><rect x="0" y="0" width="300" height="300" rx="64" fill="#241E45"/><g transform="translate(12.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#0F7C79"/></g></g><g transform="translate(128.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A67E2D"/></g></g><g transform="translate(54,72)"><g transform="scale(8.0)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FF5A5F"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A63A3E"/></g></g></svg></div><div class="label">1024 × 1024</div></div>
+      <div class="icon-tile"><div class="box" style="width:80px;height:80px;"><svg viewBox="0 0 300 300" width="80" height="80"><rect x="0" y="0" width="300" height="300" rx="64" fill="#241E45"/><g transform="translate(12.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#0F7C79"/></g></g><g transform="translate(128.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A67E2D"/></g></g><g transform="translate(54,72)"><g transform="scale(8.0)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FF5A5F"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A63A3E"/></g></g></svg></div><div class="label">180 × 180</div></div>
+      <div class="icon-tile"><div class="box" style="width:56px;height:56px;"><svg viewBox="0 0 300 300" width="56" height="56"><rect x="0" y="0" width="300" height="300" rx="64" fill="#241E45"/><g transform="translate(12.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#0F7C79"/></g></g><g transform="translate(128.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A67E2D"/></g></g><g transform="translate(54,72)"><g transform="scale(8.0)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FF5A5F"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A63A3E"/></g></g></svg></div><div class="label">60 × 60</div></div>
+      <div class="icon-tile"><div class="box" style="width:40px;height:40px;"><svg viewBox="0 0 300 300" width="40" height="40"><rect x="0" y="0" width="300" height="300" rx="64" fill="#241E45"/><g transform="translate(12.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#0F7C79"/></g></g><g transform="translate(128.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A67E2D"/></g></g><g transform="translate(54,72)"><g transform="scale(8.0)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FF5A5F"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A63A3E"/></g></g></svg></div><div class="label">29 × 29</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Logo Usage</div>
+    <h2 class="display" style="font-size:28px; letter-spacing:-0.01em;">On light, on dark — markers only</h2>
+    <div class="usage-grid">
+      <div class="usage-card on-light"><svg viewBox="0 0 640 160"><g transform="translate(30,-6) scale(0.42)"><g transform="translate(12.8,53.4)"><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#0F7C79"/></g></g><g transform="translate(128.8,53.4)"><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A67E2D"/></g></g><g transform="translate(54,72)"><g transform="scale(8.0)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FF5A5F"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A63A3E"/></g></g></g><text x="150" y="98" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="62" letter-spacing="-1.5" fill="#241E45">packbound</text></svg></div>
+      <div class="usage-card on-dark"><svg viewBox="0 0 640 160"><g transform="translate(30,-6) scale(0.42)"><g transform="translate(12.8,53.4)"><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#0F7C79"/></g></g><g transform="translate(128.8,53.4)"><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A67E2D"/></g></g><g transform="translate(54,72)"><g transform="scale(8.0)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FF5A5F"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A63A3E"/></g></g></g><text x="150" y="98" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="62" letter-spacing="-1.5" fill="#F6F4FF">packbound</text></svg></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">In Context</div>
+    <h2 class="display" style="font-size:28px; letter-spacing:-0.01em;">The mark, doing its job</h2>
+    <div class="app-mock">
+      <div class="topbar">
+        <svg viewBox="0 0 300 300"><rect x="0" y="0" width="300" height="300" rx="64" fill="#241E45"/><g transform="translate(12.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#0F7C79"/></g></g><g transform="translate(128.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A67E2D"/></g></g><g transform="translate(54,72)"><g transform="scale(8.0)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FF5A5F"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A63A3E"/></g></g></svg>
+        <span style="font-family:'Space Grotesk',sans-serif; font-weight:700; color:var(--paper); font-size:16px;">packbound</span>
+      </div>
+      <div class="card">
+        <div class="row"><span class="name"><span class="dot" style="background:#FF5A5F"></span>You (leading)</span><span class="eta" style="color:#FF5A5F">on route</span></div>
+        <div class="row"><span class="name"><span class="dot" style="background:#17BEBB"></span>Sam</span><span class="eta" style="color:#17BEBB">2.1 mi back</span></div>
+        <div class="row"><span class="name"><span class="dot" style="background:#FFC145"></span>Priya + Tom</span><span class="eta" style="color:#B98A00">4.6 mi back</span></div>
+      </div>
+      <div class="cta">Regroup at next stop</div>
+    </div>
+  </section>
+
+  <footer>PACKBOUND — BRAND GUIDE V5 — packbound.net</footer>
+
+</body>
+</html>

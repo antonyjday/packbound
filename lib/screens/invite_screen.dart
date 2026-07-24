@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/group.dart';
+import '../utils/brand_colors.dart';
 import '../utils/invite_link.dart';
 
 class InviteScreen extends StatelessWidget {
@@ -76,23 +78,23 @@ class InviteScreen extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.deepOrange.withValues(alpha: 0.08),
+                    color: BrandColors.coral.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.deepOrange.withValues(alpha: 0.3)),
+                    border: Border.all(color: BrandColors.coral.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         group.inviteCode,
-                        style: const TextStyle(
+                        style: GoogleFonts.ibmPlexMono(
                           fontSize: 24,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                           letterSpacing: 4,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Icon(Icons.copy, size: 20, color: Colors.deepOrange),
+                      const Icon(Icons.copy, size: 20, color: BrandColors.coral),
                     ],
                   ),
                 ),

@@ -18,6 +18,7 @@ import '../services/group_service.dart';
 import '../services/location_service.dart';
 import '../services/theme_service.dart';
 import '../services/voice_message_service.dart';
+import '../utils/brand_colors.dart';
 import '../utils/map_styles.dart';
 import '../utils/member_colors.dart';
 import '../utils/navigation_progress.dart';
@@ -1575,12 +1576,12 @@ class _MapScreenState extends State<MapScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.star, color: Colors.deepPurple, size: 16),
+                  Icon(Icons.star, color: BrandColors.coral, size: 16),
                   SizedBox(width: 2),
                   Text(
                     'Owner',
                     style: TextStyle(
-                      color: Colors.deepPurple,
+                      color: BrandColors.coral,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1643,7 +1644,6 @@ class _MapScreenState extends State<MapScreen> {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
-                const PopupMenuDivider(),
               ],
               PopupMenuItem(
                 value: 'toggle_theme',
@@ -1657,7 +1657,8 @@ class _MapScreenState extends State<MapScreen> {
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
-              if (_isOwner && !_groupEnded)
+              if (_isOwner && !_groupEnded) ...[
+                const PopupMenuDivider(),
                 const PopupMenuItem(
                   value: 'end',
                   child: ListTile(
@@ -1669,6 +1670,7 @@ class _MapScreenState extends State<MapScreen> {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
+              ],
               const PopupMenuItem(
                 value: 'leave',
                 child: ListTile(
@@ -1910,7 +1912,7 @@ class _MapScreenState extends State<MapScreen> {
                       child: FloatingActionButton.small(
                         heroTag: 'toggleSharing',
                         onPressed: _toggleSharing,
-                        backgroundColor: _sharing ? Colors.red : Colors.deepOrange,
+                        backgroundColor: _sharing ? Colors.red : BrandColors.coral,
                         tooltip: _sharing
                             ? 'Stop sharing my location'
                             : 'Start sharing my location',

@@ -719,3 +719,20 @@ list see [README.md](README.md).
       `battery_plus` plugin the warning above already uses) alongside the
       existing heading/speed, plus a place to surface it (roster row?
       marker badge?).
+- [ ] Trip type selector (Car, Train, Bicycle, Walk) - set from the main
+      menu, presumably per-trip rather than a global preference. Two
+      downstream effects suggested: (1) different default camera/zoom
+      distances when setting a route - a walking trip's "nearby" is a
+      cyclist's or driver's "much too zoomed in"; (2) a different, more
+      relevant set of quick-message presets per type (e.g. "Missed the
+      train" doesn't make sense for a driving trip, "Pulling over"/"Need
+      fuel" don't make sense for a walk). Would need a `tripType` field on
+      the group doc, a picker somewhere in the create-group or route-setup
+      flow (not obviously "the main menu" as asked, since trip type feels
+      more like a trip-creation-time choice than an ongoing setting -
+      worth clarifying placement before building), and the quick-message
+      preset list (`lib/utils/quick_messages.dart`) keyed off it. The
+      Directions API call itself is mode-aware too (driving/walking/
+      bicycling/transit) - currently always requests driving directions,
+      so a real implementation should probably also route accordingly,
+      not just change the camera/UI.

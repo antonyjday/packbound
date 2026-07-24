@@ -1,0 +1,26 @@
+<svg viewBox="0 0 640 160" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(30,-6) scale(0.42)">
+    <g transform="translate(12.8,53.4)">
+      <g transform="scale(6.6)">
+        <path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/>
+        <circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/>
+        <circle cx="12" cy="9" r="2.3" fill="#0F7C79"/>
+      </g>
+    </g>
+    <g transform="translate(128.8,53.4)">
+      <g transform="scale(6.6)">
+        <path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/>
+        <circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/>
+        <circle cx="12" cy="9" r="2.3" fill="#A67E2D"/>
+      </g>
+    </g>
+    <g transform="translate(54,72)">
+      <g transform="scale(8.0)">
+        <path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FF5A5F"/>
+        <circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/>
+        <circle cx="12" cy="9" r="2.3" fill="#A63A3E"/>
+      </g>
+    </g>
+  </g>
+  <text x="150" y="98" font-family="'Space Grotesk','Arial Black',sans-serif" font-weight="700" font-size="62" letter-spacing="-1.5" fill="#F6F4FF">packbound</text>
+</svg>

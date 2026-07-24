@@ -133,9 +133,20 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           SegmentedButton<TripType>(
+            // Icon-only: a visible label per segment used to wrap onto a
+            // second line at larger system font sizes / low-res screens,
+            // breaking the segmented layout. The icon alone is enough to
+            // tell the options apart; semanticLabel + Tooltip keep the
+            // name available to screen readers and long-press/hover.
             segments: [
               for (final type in TripType.values)
-                ButtonSegment(value: type, icon: Icon(type.icon), label: Text(type.label)),
+                ButtonSegment(
+                  value: type,
+                  icon: Tooltip(
+                    message: type.label,
+                    child: Icon(type.icon, semanticLabel: type.label),
+                  ),
+                ),
             ],
             selected: {_tripType},
             onSelectionChanged: (selected) =>

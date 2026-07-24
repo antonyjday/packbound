@@ -1674,9 +1674,13 @@ class _MapScreenState extends State<MapScreen> {
         // below, to leave more vertical room for the map.
         toolbarHeight: 40,
         titleSpacing: 12,
-        // The clock is just DateTime.now() at build time - it stays live
-        // off the back of _staleTicker's 5s setState, no dedicated timer
-        // needed.
+        // Persistent ambient indicator, not a one-off alert - stays up
+        // the whole time you're owner (including right after inheriting
+        // it - see the snackbar in _handleMembershipSnapshot for that
+        // one-time transition notice) so it's never unclear whose trip
+        // settings/route changes will actually apply. Lives in the app
+        // bar title (rather than its own banner) to keep more vertical
+        // room for the map.
         title: Row(
           children: [
             Expanded(
@@ -1686,7 +1690,35 @@ class _MapScreenState extends State<MapScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Text(
+            if (_isOwner)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.star, color: BrandColors.coral, size: 16),
+                    SizedBox(width: 2),
+                    Text(
+                      'Owner',
+                      style: TextStyle(
+                        color: BrandColors.coral,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        actionsIconTheme: const IconThemeData(size: 20),
+        actions: [
+          // The clock is just DateTime.now() at build time - it stays
+          // live off the back of _staleTicker's 5s setState, no
+          // dedicated timer needed.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
               _formatClockTime(DateTime.now()),
               style: TextStyle(
                 fontSize: 13,
@@ -1695,36 +1727,7 @@ class _MapScreenState extends State<MapScreen> {
                 ).colorScheme.onSurface.withValues(alpha: 0.65),
               ),
             ),
-          ],
-        ),
-        actionsIconTheme: const IconThemeData(size: 20),
-        actions: [
-          // Persistent ambient indicator, not a one-off alert - stays up
-          // the whole time you're owner (including right after inheriting
-          // it - see the snackbar in _handleMembershipSnapshot for that
-          // one-time transition notice) so it's never unclear whose trip
-          // settings/route changes will actually apply. Lives in the app
-          // bar (rather than its own banner) to keep more vertical room
-          // for the map.
-          if (_isOwner)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.star, color: BrandColors.coral, size: 16),
-                  SizedBox(width: 2),
-                  Text(
-                    'Owner',
-                    style: TextStyle(
-                      color: BrandColors.coral,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          ),
           // Always shown (not just for the owner) so every member has a
           // way to leave the trip - owner-only actions are added inside
           // conditionally instead of gating the whole menu.

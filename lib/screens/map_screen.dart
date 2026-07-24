@@ -363,6 +363,14 @@ class _MapScreenState extends State<MapScreen> {
     return '${h}h ${m}m';
   }
 
+  String _formatClockTime(DateTime time) {
+    final hour24 = time.hour;
+    final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final suffix = hour24 < 12 ? 'am' : 'pm';
+    return '$hour12:$minute $suffix';
+  }
+
   Future<void> _extendTrip() async {
     try {
       await _groupService.extendTrip(widget.group.id);
@@ -1666,7 +1674,29 @@ class _MapScreenState extends State<MapScreen> {
         // below, to leave more vertical room for the map.
         toolbarHeight: 40,
         titleSpacing: 12,
-        title: Text(widget.group.name, style: const TextStyle(fontSize: 16)),
+        // The clock is just DateTime.now() at build time - it stays live
+        // off the back of _staleTicker's 5s setState, no dedicated timer
+        // needed.
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.group.name,
+                style: const TextStyle(fontSize: 16),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              _formatClockTime(DateTime.now()),
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.65),
+              ),
+            ),
+          ],
+        ),
         actionsIconTheme: const IconThemeData(size: 20),
         actions: [
           // Persistent ambient indicator, not a one-off alert - stays up
@@ -2231,7 +2261,8 @@ class _MapScreenState extends State<MapScreen> {
                               icon: Icons.alt_route,
                               label:
                                   'Full route: '
-                                  '${_formatDistanceDuration(route.distanceMeters, route.durationSeconds)}',
+                                  '${_formatDistanceDuration(route.distanceMeters, route.durationSeconds)}'
+                                  '${_myEtaRemainingStops > 0 ? ' ($_myEtaRemainingStops stop${_myEtaRemainingStops == 1 ? '' : 's'} left)' : ''}',
                             ),
                             if (_myEtaDuration != null &&
                                 _myEtaDistanceMeters != null)
@@ -2240,8 +2271,8 @@ class _MapScreenState extends State<MapScreen> {
                                 label:
                                     'You: '
                                     '${_formatDistanceDuration(_myEtaDistanceMeters!.round(), _myEtaDuration!.inSeconds)}'
-                                    ' to end'
-                                    '${_myEtaRemainingStops > 0 ? ' ($_myEtaRemainingStops stop${_myEtaRemainingStops == 1 ? '' : 's'} left)' : ''}',
+                                    ' · ETA '
+                                    '${_formatClockTime(DateTime.now().add(_myEtaDuration!))}',
                               ),
                           ],
                         ),

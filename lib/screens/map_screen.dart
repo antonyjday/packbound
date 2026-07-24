@@ -1118,12 +1118,6 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  void _cancelPushToTalk() {
-    if (!_recordingVoice) return;
-    setState(() => _recordingVoice = false);
-    _voiceMessageService.cancelRecording();
-  }
-
   Future<void> _sendQuickMessage(String text) async {
     final displayName = _authService.currentUser?.displayName ?? 'Someone';
     try {
@@ -1609,17 +1603,6 @@ class _MapScreenState extends State<MapScreen> {
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                const PopupMenuItem(
-                  value: 'end',
-                  child: ListTile(
-                    leading: Icon(
-                      Icons.stop_circle_outlined,
-                      color: Colors.red,
-                    ),
-                    title: Text('End trip'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
                 PopupMenuItem(
                   value: 'route',
                   child: ListTile(
@@ -1663,6 +1646,18 @@ class _MapScreenState extends State<MapScreen> {
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
+              if (_isOwner && !_groupEnded)
+                const PopupMenuItem(
+                  value: 'end',
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.stop_circle_outlined,
+                      color: Colors.red,
+                    ),
+                    title: Text('End trip'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
               const PopupMenuItem(
                 value: 'leave',
                 child: ListTile(
@@ -1929,25 +1924,25 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ),
 
-                    // Push-to-talk - press and hold to record, release to
-                    // send as a voice clip (see VoiceMessageService); a
-                    // plain GestureDetector rather than a FloatingActionButton
-                    // since a FAB only exposes a single onPressed, not
-                    // distinct press-start/press-end callbacks. Bottom-right,
-                    // just above the Google Maps zoom controls (which sit
-                    // flush with the bottom edge - see the route-info chip
-                    // stack's bottom:4 comment below for that reference
-                    // point) rather than the top button row, since a driver
-                    // reaching for "hold to talk" repeatedly benefits from
-                    // it being right above where their thumb already rests
-                    // near the zoom controls.
+                    // Push-to-talk - tap to start recording, tap again to
+                    // stop and send as a voice clip (see VoiceMessageService);
+                    // a plain GestureDetector rather than a
+                    // FloatingActionButton so the tap toggles between the two
+                    // states via _recordingVoice rather than needing a
+                    // separate press-and-hold gesture. Bottom-right, just
+                    // above the Google Maps zoom controls (which sit flush
+                    // with the bottom edge - see the route-info chip stack's
+                    // bottom:4 comment below for that reference point) rather
+                    // than the top button row, since a driver reaching for
+                    // "talk" repeatedly benefits from it being right above
+                    // where their thumb already rests near the zoom controls.
                     Positioned(
                       bottom: 130,
                       right: 12,
                       child: GestureDetector(
-                        onTapDown: (_) => _startPushToTalk(),
-                        onTapUp: (_) => _stopAndSendPushToTalk(),
-                        onTapCancel: _cancelPushToTalk,
+                        onTap: () => _recordingVoice
+                            ? _stopAndSendPushToTalk()
+                            : _startPushToTalk(),
                         child: Material(
                           color: _recordingVoice
                               ? Colors.red
@@ -1955,7 +1950,9 @@ class _MapScreenState extends State<MapScreen> {
                           shape: const CircleBorder(),
                           elevation: 4,
                           child: Tooltip(
-                            message: 'Hold to record a voice message',
+                            message: _recordingVoice
+                                ? 'Tap to stop and send'
+                                : 'Tap to start recording a voice message',
                             child: SizedBox(
                               width: 56,
                               height: 56,
@@ -1988,6 +1985,7 @@ class _MapScreenState extends State<MapScreen> {
                         child: FloatingActionButton.small(
                           heroTag: 'roster',
                           onPressed: () => _showStatusList(points),
+                          tooltip: 'Group members',
                           child: const Icon(Icons.groups),
                         ),
                       ),
@@ -2004,6 +2002,7 @@ class _MapScreenState extends State<MapScreen> {
                           _registerManualCameraOverride();
                           _fitCameraToPoints(points);
                         },
+                        tooltip: 'Fit map to everyone',
                         child: const Icon(Icons.center_focus_strong),
                       ),
                     ),

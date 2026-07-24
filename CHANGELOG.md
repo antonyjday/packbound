@@ -644,6 +644,18 @@ list see [README.md](README.md).
       at all (verified via `keytool -list`) - corrected to the real
       value. Verified live on two emulators: Maps tiles, route polyline,
       and turn-by-turn all render correctly under the new key.
+- [x] Small map-screen polish pass, all reported/verified live on-device:
+      added missing tooltips to the roster ("Group members") and refit
+      ("Fit map to everyone") buttons - the "My location", step-route, and
+      skip-route buttons already had them. Changed push-to-talk from
+      press-and-hold to tap-to-start/tap-to-stop (`onTapDown`/`onTapUp`
+      replaced with a single `onTap` toggling on `_recordingVoice`, dropping
+      the now-unreachable `_cancelPushToTalk` gesture-cancel handler), with
+      the tooltip text switching between "Tap to start recording a voice
+      message" and "Tap to stop and send" to match - preferred over hold,
+      per testing feedback that holding down was tricky. Reordered the
+      owner's overflow menu so "End trip" sits directly above "Leave trip"
+      (previously separated by the route/invite items and a divider).
 
 ## Needed before this is usable end-to-end
 

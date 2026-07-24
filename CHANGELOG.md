@@ -656,6 +656,15 @@ list see [README.md](README.md).
       per testing feedback that holding down was tricky. Reordered the
       owner's overflow menu so "End trip" sits directly above "Leave trip"
       (previously separated by the route/invite items and a divider).
+- [x] Trimmed the turn-by-turn navigation bar's padding and icon size in
+      landscape only (12px vertical padding/32px icon -> 6px/24px), leaving
+      the instruction/distance text itself at full size - landscape has far
+      less vertical slack than portrait (the top button rail runs
+      horizontally there instead of down the side), and the bar sits
+      in-flow above the map, pushing everything else down by its own
+      height. Requested to free up room for the button rail without
+      sacrificing how readable the directions are. Verified live in both
+      orientations via `adb emu rotate`.
 
 ## Needed before this is usable end-to-end
 

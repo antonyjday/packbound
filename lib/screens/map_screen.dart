@@ -448,13 +448,24 @@ class _MapScreenState extends State<MapScreen> {
   /// navigation_progress.dart) since which one applies depends on this
   /// device's live heading, not just the step itself.
   Widget _buildNavigationBar(String text, IconData icon, double distanceMeters) {
+    // Landscape has far less vertical slack than portrait (the top button
+    // rail runs horizontally there instead - see isLandscapeButtonRail
+    // above), so this bar trims its own padding/icon size in that
+    // orientation to leave more of it free, without shrinking the actual
+    // instruction/distance text - that's the part that needs to stay
+    // clearly readable at a glance while driving.
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
     return Container(
       width: double.infinity,
       color: Colors.blue.shade900,
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      padding: EdgeInsets.symmetric(
+        vertical: isLandscape ? 6 : 12,
+        horizontal: 16,
+      ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white, size: 32),
+          Icon(icon, color: Colors.white, size: isLandscape ? 24 : 32),
           const SizedBox(width: 14),
           Expanded(
             child: Column(

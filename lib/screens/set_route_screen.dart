@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/group.dart';
 import '../models/place_suggestion.dart';
 import '../models/route_plan.dart';
+import '../models/trip_type.dart';
 import '../services/directions_service.dart';
 import '../services/group_service.dart';
 import '../services/location_service.dart';
@@ -26,7 +27,20 @@ class SetRouteScreen extends StatefulWidget {
   final ConvoyGroup group;
   final RoutePlan? initialRoute;
 
-  const SetRouteScreen({super.key, required this.group, this.initialRoute});
+  // Passed explicitly rather than read from group.tripType - MapScreen keeps
+  // a live-synced _tripType field (the menu's "Trip type" picker can change
+  // it without rebuilding MapScreen's widget.group), so relying on
+  // group.tripType here would silently use a stale mode if the owner
+  // changed trip type and then opened this screen in the same session
+  // (see the caller in MapScreen._openSetRoute).
+  final TripType tripType;
+
+  const SetRouteScreen({
+    super.key,
+    required this.group,
+    required this.tripType,
+    this.initialRoute,
+  });
 
   @override
   State<SetRouteScreen> createState() => _SetRouteScreenState();
@@ -38,10 +52,11 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
   final _directionsService = DirectionsService();
   final _placesService = PlacesService();
 
-  // Roughly fits a 50mi radius around the center point on a phone screen -
-  // keeps the initial view scoped to a plausible destination range instead
-  // of opening on the whole world.
-  static const _nearbyZoom = 9.0;
+  // Fits a plausible destination range for the group's trip type on a phone
+  // screen (see TripType.nearbyZoom) instead of a single fixed radius that's
+  // right for driving but useless for a walk (too zoomed out) or a train
+  // trip (too zoomed in).
+  double get _nearbyZoom => widget.tripType.nearbyZoom;
   static const _worldFallbackCamera = CameraPosition(target: LatLng(0, 0), zoom: 2);
 
   _TapMode _mode = _TapMode.destination;
@@ -260,10 +275,26 @@ class _SetRouteScreenState extends State<SetRouteScreen> {
         origin: origin,
         destination: _destination!,
         waypoints: _waypoints,
+        mode: widget.tripType.directionsMode,
       );
 
       await _groupService.setRoute(widget.group.id, route);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        // Transit directions don't support waypoints at all (see
+        // DirectionsService.route) - let the owner know their stops didn't
+        // silently make it into the saved route, rather than them finding
+        // out only once they notice the map doesn't show them.
+        if (widget.tripType == TripType.train && _waypoints.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+              "Train trips route point-to-point only - stops aren't supported "
+              'and were not included in the saved route.',
+            ),
+            duration: Duration(seconds: 5),
+          ));
+        }
+        Navigator.pop(context);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));

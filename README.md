@@ -12,6 +12,10 @@ position on a shared map for the duration of the trip.
   status (live / weak / lost) per member.
 - **Background sharing** — keeps reporting your position while the app is
   minimized, with a one-tap toggle to pause it.
+- **Trip type** — Car, Train, Bicycle, or Walk, set when creating the trip
+  (changeable later by the owner). Tunes the route-planning map's default
+  zoom, which quick-message presets are offered, and the actual travel mode
+  used to calculate routes/ETAs.
 - **Shared route & turn-by-turn navigation** — the trip owner sets a start
   point, destination, and any stops; every member gets their own live ETA,
   route line, and turn-by-turn directions to get there.
@@ -19,9 +23,10 @@ position on a shared map for the duration of the trip.
   after 10h of inactivity, with warnings as the deadline approaches. Anyone
   can leave at any time; ownership passes automatically if the owner leaves
   or the trip is ever abandoned and later rejoined.
-- **Quick messages & push-to-talk** — one-tap preset messages ("Pulling
-  over", "Need fuel", ...) or a hold-to-talk voice clip, delivered to the
-  group as an alert plus a push notification.
+- **Quick messages & push-to-talk** — one-tap preset messages (relevant to
+  the trip type, e.g. "Need fuel" for a drive, "Missed the train" for a
+  train trip) or a tap-to-record voice clip, delivered to the group as an
+  alert plus a push notification.
 - **Low battery & lost-signal alerts** — the group is notified if your
   battery gets critically low, or if your signal goes quiet or you arrive.
 - **Dark mode.**

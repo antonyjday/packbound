@@ -5,8 +5,9 @@ import '../models/route_plan.dart';
 import '../utils/polyline_codec.dart';
 
 /// Calls the (legacy) Directions API to turn an origin/destination/ordered
-/// waypoints into an actual driving route. Used once, on the setting device,
-/// when a route is saved or amended - every viewer just renders the stored
+/// waypoints into an actual route for the group's trip type (see
+/// trip_type.dart's directionsMode). Used once, on the setting device, when
+/// a route is saved or amended - every viewer just renders the stored
 /// result, no per-viewer API calls for the route itself (see DirectionsService
 /// usage in MapScreen for the separate, throttled "my live ETA" calls).
 class DirectionsService {
@@ -21,15 +22,23 @@ class DirectionsService {
     required RouteStop origin,
     required RouteStop destination,
     required List<RouteStop> waypoints,
+    String mode = 'driving',
   }) async {
+    // The Directions API flatly does not support the waypoints parameter
+    // for transit directions (a train trip) - it returns INVALID_REQUEST if
+    // both are present. Rather than fail the whole route, silently route
+    // origin-to-destination only for transit; waypoints still apply for
+    // every other mode.
+    final effectiveWaypoints = mode == 'transit' ? const <RouteStop>[] : waypoints;
     final params = {
       'origin': '${origin.lat},${origin.lng}',
       'destination': '${destination.lat},${destination.lng}',
       'key': _apiKey,
-      if (waypoints.isNotEmpty)
+      'mode': mode,
+      if (effectiveWaypoints.isNotEmpty)
         // No "via:" prefix - these are real intended stops the group plans to
         // actually stop at, not just route-shaping hints.
-        'waypoints': waypoints.map((w) => '${w.lat},${w.lng}').join('|'),
+        'waypoints': effectiveWaypoints.map((w) => '${w.lat},${w.lng}').join('|'),
     };
     final uri = Uri.https('maps.googleapis.com', '/maps/api/directions/json', params);
 
@@ -83,7 +92,9 @@ class DirectionsService {
     return RoutePlan(
       origin: origin,
       destination: destination,
-      waypoints: waypoints,
+      // Reflects what was actually routed through, not what was asked for -
+      // see effectiveWaypoints above, transit silently drops these.
+      waypoints: effectiveWaypoints,
       polyline: encodePolyline(precisePoints),
       distanceMeters: distanceMeters,
       durationSeconds: durationSeconds,

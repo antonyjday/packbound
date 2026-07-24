@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/group.dart';
 import '../models/group_message.dart';
 import '../models/route_plan.dart';
+import '../models/trip_type.dart';
 
 class GroupService {
   final FirebaseFirestore _db;
@@ -51,6 +52,7 @@ class GroupService {
     required String name,
     required String ownerId,
     Duration inviteValidFor = const Duration(hours: 24),
+    TripType tripType = TripType.car,
   }) async {
     final groupRef = _db.collection('groups').doc();
     final inviteCode = await _generateUniqueInviteCode();
@@ -66,6 +68,7 @@ class GroupService {
       status: 'active',
       tripExpiresAt: Timestamp.fromDate(DateTime.now().add(tripLifetime)),
       ownerId: ownerId,
+      tripType: tripType,
     );
 
     // Deliberately two sequential writes, not a batch/transaction: the
@@ -168,6 +171,20 @@ class GroupService {
         .collection('groups')
         .doc(groupId)
         .update({'membersCanInvite': allowed});
+  }
+
+  /// Owner-only: changes how the group is getting there (see trip_type.dart)
+  /// - affects new SetRouteScreen zoom defaults, quick-message presets, and
+  /// future Directions calls' travel mode. Doesn't retroactively recompute
+  /// an already-saved route; the owner would need to re-save it via
+  /// SetRouteScreen for the new mode to actually apply to the shared route.
+  /// Same isOwner()-gated update rule as the other owner settings above -
+  /// no rules change needed.
+  Future<void> updateTripType(String groupId, TripType tripType) {
+    return _db
+        .collection('groups')
+        .doc(groupId)
+        .update({'tripType': tripType.name});
   }
 
   /// Owner-only: sets (or replaces) the group's shared trip plan. Stored as a

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/trip_type.dart';
 import '../services/auth_service.dart';
 import '../services/group_service.dart';
 import '../services/deep_link_service.dart';
@@ -18,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _groupNameController = TextEditingController();
   final _inviteCodeController = TextEditingController();
   bool _loading = false;
+  TripType _tripType = TripType.car;
 
   @override
   void initState() {
@@ -61,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final group = await _groupService.createGroup(
         name: _groupNameController.text.trim(),
         ownerId: _authService.uid!,
+        tripType: _tripType,
       );
       if (mounted) {
         Navigator.push(
@@ -127,6 +130,16 @@ class _HomeScreenState extends State<HomeScreen> {
               labelText: 'Group name (e.g. "Road trip to Denver")',
               border: OutlineInputBorder(),
             ),
+          ),
+          const SizedBox(height: 16),
+          SegmentedButton<TripType>(
+            segments: [
+              for (final type in TripType.values)
+                ButtonSegment(value: type, icon: Icon(type.icon), label: Text(type.label)),
+            ],
+            selected: {_tripType},
+            onSelectionChanged: (selected) =>
+                setState(() => _tripType = selected.first),
           ),
           const SizedBox(height: 12),
           FilledButton(

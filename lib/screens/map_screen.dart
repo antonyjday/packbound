@@ -12,6 +12,7 @@ import '../models/group.dart';
 import '../models/group_message.dart';
 import '../models/location_point.dart';
 import '../models/route_plan.dart';
+import '../models/trip_type.dart';
 import '../services/auth_service.dart';
 import '../services/directions_service.dart';
 import '../services/group_service.dart';
@@ -181,6 +182,13 @@ class _MapScreenState extends State<MapScreen> {
   // snapshot arrives, then kept live from the listener below.
   bool _membersCanInvite = true;
 
+  // How the group is getting there (see trip_type.dart) - same
+  // seed-then-sync pattern as _membersCanInvite above, so a change from the
+  // menu (this device or another owner-view) is reflected immediately in
+  // the quick-message presets and live ETA's travel mode without needing
+  // to reopen the map screen.
+  TripType _tripType = TripType.car;
+
   // Banner is dismissible, but reappears if the severity level goes up
   // (e.g. dismissed the 4h-out warning, but the 1h-out one still shows).
   int _dismissedWarningLevel = 0;
@@ -199,6 +207,7 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _membersCanInvite = widget.group.membersCanInvite;
+    _tripType = widget.group.tripType;
     _staleTicker = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) setState(() {});
     });
@@ -273,6 +282,11 @@ class _MapScreenState extends State<MapScreen> {
             final newMembersCanInvite = data?['membersCanInvite'] ?? true;
             if (newMembersCanInvite != _membersCanInvite && mounted) {
               setState(() => _membersCanInvite = newMembersCanInvite);
+            }
+
+            final newTripType = TripType.fromName(data?['tripType']);
+            if (newTripType != _tripType && mounted) {
+              setState(() => _tripType = newTripType);
             }
 
             if (status == 'ended' && !_groupEnded) {
@@ -749,8 +763,11 @@ class _MapScreenState extends State<MapScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            SetRouteScreen(group: widget.group, initialRoute: _route),
+        builder: (_) => SetRouteScreen(
+          group: widget.group,
+          tripType: _tripType,
+          initialRoute: _route,
+        ),
       ),
     );
   }
@@ -775,6 +792,81 @@ class _MapScreenState extends State<MapScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _membersCanInvite = !next);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
+  /// Owner-only: shows a picker for the group's trip type (see
+  /// trip_type.dart) - a simple radio-style dialog rather than a submenu,
+  /// since PopupMenuButton doesn't nest.
+  Future<void> _pickTripType() async {
+    final picked = await showDialog<TripType>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Trip type'),
+        children: [
+          for (final type in TripType.values)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, type),
+              child: Row(
+                children: [
+                  Icon(type.icon),
+                  const SizedBox(width: 12),
+                  Text(type.label),
+                  if (type == _tripType) ...[
+                    const Spacer(),
+                    const Icon(Icons.check, color: BrandColors.coral),
+                  ],
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || picked == _tripType || !mounted) return;
+
+    // Changing mode invalidates the shared route - it was calculated for
+    // the old travel mode (see DirectionsService.route's `mode`), so
+    // silently leaving a driving route in place after switching to Walk
+    // would be actively misleading. Only worth confirming if there's
+    // actually a route to lose.
+    if (_route != null) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Change trip type?'),
+          content: const Text(
+            "This trip's current route was calculated for the old trip "
+            "type and will be cleared - you'll need to set it again "
+            'afterward.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Change & clear route'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
+    final previous = _tripType;
+    setState(() => _tripType = picked); // optimistic; listener reconciles
+    try {
+      await _groupService.updateTripType(widget.group.id, picked);
+      if (_route != null) await _groupService.clearRoute(widget.group.id);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _tripType = previous);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('$e')));
@@ -850,6 +942,7 @@ class _MapScreenState extends State<MapScreen> {
           origin: myPosition,
           destination: _route!.destination,
           waypoints: legsToGo,
+          mode: _tripType.directionsMode,
         )
         .then((result) {
           if (!mounted) return;
@@ -1174,30 +1267,43 @@ class _MapScreenState extends State<MapScreen> {
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
+      // Some trip types have more presets than others (see quick_messages.dart)
+      // - a plain fixed-height Column silently overflowed off the bottom of
+      // the screen once a list grew past whatever happened to fit
+      // (discovered via the train list's 8 presets vs. car's 7). Capping the
+      // sheet's height and scrolling its content handles any preset count.
+      isScrollControlled: true,
       builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Send a quick message',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(sheetContext).size.height * 0.8,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Send a quick message',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
                 ),
-              ),
+                for (final preset in quickMessagePresetsFor(_tripType))
+                  ListTile(
+                    leading: Icon(preset.icon),
+                    title: Text(preset.text),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _sendQuickMessage(preset.text);
+                    },
+                  ),
+              ],
             ),
-            for (final preset in quickMessagePresets)
-              ListTile(
-                leading: Icon(preset.icon),
-                title: Text(preset.text),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _sendQuickMessage(preset.text);
-                },
-              ),
-          ],
+          ),
         ),
       ),
     );
@@ -1600,6 +1706,7 @@ class _MapScreenState extends State<MapScreen> {
               if (value == 'route') _openSetRoute();
               if (value == 'clear_route') _clearRoute();
               if (value == 'toggle_invite') _toggleMembersCanInvite();
+              if (value == 'trip_type') _pickTripType();
               if (value == 'toggle_theme') ThemeService.instance.toggle();
               if (value == 'leave') _confirmLeaveTrip();
             },
@@ -1641,6 +1748,14 @@ class _MapScreenState extends State<MapScreen> {
                           : Icons.check_box_outline_blank,
                     ),
                     title: const Text('Allow members to invite'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'trip_type',
+                  child: ListTile(
+                    leading: Icon(_tripType.icon),
+                    title: Text('Trip type: ${_tripType.label}'),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
@@ -2129,6 +2244,39 @@ class _MapScreenState extends State<MapScreen> {
                                     '${_myEtaRemainingStops > 0 ? ' ($_myEtaRemainingStops stop${_myEtaRemainingStops == 1 ? '' : 's'} left)' : ''}',
                               ),
                           ],
+                        ),
+                      ),
+
+                    // Prompts the owner to actually plan the trip - easy to
+                    // miss otherwise, since "Set route" is just one more item
+                    // buried in the "..." menu. Deliberately temporary: shows
+                    // only until a route exists (then this whole block stops
+                    // rendering - the menu item remains as "Edit route"
+                    // going forward), and only for the owner, since they're
+                    // the only one who can actually set it.
+                    if (_isOwner && !_groupEnded && route == null)
+                      Align(
+                        alignment: const Alignment(0, 0.35),
+                        child: FilledButton.icon(
+                          onPressed: _openSetRoute,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: BrandColors.coral,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 28,
+                              vertical: 18,
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(32),
+                            ),
+                            elevation: 6,
+                          ),
+                          icon: const Icon(Icons.alt_route, size: 26),
+                          label: const Text('Set route'),
                         ),
                       ),
 

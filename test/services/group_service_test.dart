@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:convoy_app/models/route_plan.dart';
+import 'package:convoy_app/models/trip_type.dart';
 import 'package:convoy_app/services/group_service.dart';
 
 void main() {
@@ -42,6 +43,22 @@ void main() {
       expect(group.inviteCode.length, 6);
       // No ambiguous chars (0/O, 1/I/L) - see GroupService._generateInviteCode.
       expect(RegExp(r'^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$').hasMatch(group.inviteCode), true);
+    });
+
+    test('defaults to TripType.car when not specified', () async {
+      final group = await service.createGroup(name: 'Trip', ownerId: 'owner-1');
+      expect(group.tripType, TripType.car);
+      expect((await groupData(group.id))?['tripType'], 'car');
+    });
+
+    test('stores the given trip type', () async {
+      final group = await service.createGroup(
+        name: 'Trip',
+        ownerId: 'owner-1',
+        tripType: TripType.bicycle,
+      );
+      expect(group.tripType, TripType.bicycle);
+      expect((await groupData(group.id))?['tripType'], 'bicycle');
     });
   });
 
@@ -257,6 +274,12 @@ void main() {
       final group = await service.createGroup(name: 'Trip', ownerId: 'owner-1');
       await service.endGroup(group.id);
       expect((await groupData(group.id))?['status'], 'ended');
+    });
+
+    test('updateTripType changes the stored trip type', () async {
+      final group = await service.createGroup(name: 'Trip', ownerId: 'owner-1');
+      await service.updateTripType(group.id, TripType.walk);
+      expect((await groupData(group.id))?['tripType'], 'walk');
     });
   });
 

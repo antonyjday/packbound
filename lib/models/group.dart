@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'route_plan.dart';
+import 'trip_type.dart';
 
 class ConvoyGroup {
   final String id;
@@ -22,6 +23,11 @@ class ConvoyGroup {
   // joinGroupByInviteCode has the next person to rejoin inherit it.
   final String? ownerId;
 
+  // How the group is getting there - see trip_type.dart. Defaults to car,
+  // both for a brand new group and for any group created before this field
+  // existed (fromDoc's fallback).
+  final TripType tripType;
+
   ConvoyGroup({
     required this.id,
     required this.name,
@@ -34,6 +40,7 @@ class ConvoyGroup {
     this.route,
     this.membersCanInvite = true,
     this.ownerId,
+    this.tripType = TripType.car,
   });
 
   factory ConvoyGroup.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -53,6 +60,7 @@ class ConvoyGroup {
           : null,
       membersCanInvite: data['membersCanInvite'] ?? true,
       ownerId: data['ownerId'],
+      tripType: TripType.fromName(data['tripType']),
     );
   }
 
@@ -68,5 +76,6 @@ class ConvoyGroup {
         'expiryWarningLevel': 0,
         'membersCanInvite': true,
         'ownerId': ownerId,
+        'tripType': tripType.name,
       };
 }

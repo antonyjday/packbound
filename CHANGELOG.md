@@ -665,6 +665,79 @@ list see [README.md](README.md).
       height. Requested to free up room for the button rail without
       sacrificing how readable the directions are. Verified live in both
       orientations via `adb emu rotate`.
+- [x] Added a per-trip type (Car/Train/Bicycle/Walk, see `lib/models/
+      trip_type.dart`), picked via a `SegmentedButton` on the create-group
+      screen and changeable afterward from the owner's "..." menu (a
+      `SimpleDialog` picker, since `PopupMenuButton` can't nest submenus).
+      Stored as a plain string field on the group doc (`tripType`, defaults
+      to `car` for groups created before this existed), same isOwner()-gated
+      update rule as the other owner settings - no rules change needed.
+      Drives three things: (1) `SetRouteScreen`'s default "nearby" zoom
+      level (`TripType.nearbyZoom` - car ~50mi, train ~100mi, bicycle ~12mi,
+      walk ~3mi - a walking trip's plausible range is a driving trip's
+      pointless close-up, and vice versa); (2) which quick-message presets
+      show up (`lib/utils/quick_messages.dart` restructured from one flat
+      list into per-type lists plus a shared "common" set - e.g. "Missed
+      the train"/"On the train" only for train trips, "Need fuel" only for
+      car); (3) `DirectionsService.route`'s Google Directions API `mode`
+      parameter (`TripType.directionsMode`: driving/transit/bicycling/
+      walking), so a route is now actually calculated for how the group is
+      getting there, not just always driving directions with different
+      UI/copy on top. Had to special-case transit: the Directions API
+      flatly rejects the `waypoints` parameter combined with `mode=transit`
+      (`INVALID_REQUEST`), so `DirectionsService.route` silently drops
+      waypoints when the mode is transit, and the returned `RoutePlan`
+      reflects that (not the originally-requested waypoints) so the map
+      doesn't show stop markers a train route didn't actually route
+      through; `SetRouteScreen` also warns the owner via SnackBar if they
+      saved a train route with stops, since the drop would otherwise be
+      silent. Found and fixed a real bug during testing: the quick-message
+      bottom sheet was a fixed non-scrolling `Column` that happened to just
+      barely fit car's 7 presets - train's 8 (4 type-specific + 4 shared)
+      overflowed off the bottom of the screen. Fixed by capping the sheet
+      at 80% of screen height and making its content scroll
+      (`isScrollControlled: true` + `SingleChildScrollView`), which also
+      makes it robust to any future preset-list length rather than
+      re-breaking the next time a list grows. New tests in `trip_type_test.
+      dart` and `quick_messages_test.dart`, plus additions to `group_test.
+      dart`/`group_service_test.dart` (108 Dart tests total now). Verified live: home
+      screen's 4-way segmented button (shortened "Bicycle" to "Bike" so all
+      four fit on one line without wrapping), the menu picker, live preset
+      switching, and `SetRouteScreen` opening at the correct wider zoom for
+      a train trip. Did not live-test an actual saved transit/walking/
+      cycling route against the real Directions API end-to-end (would need
+      a real destination + location permission grant) - the mode plumbing
+      and transit waypoint-dropping are verified by code review and the
+      unit tests above, not a live route save.
+- [x] Added a prominent "Set route" call-to-action on the map screen,
+      shown only to the owner and only while no route exists yet (goes away
+      the moment one is set) - "Set route" was otherwise just one line in
+      the "..." menu, easy to miss when starting a new trip. Centered over
+      the map (`Align(alignment: Alignment(0, 0.35))`), styled much bigger
+      than the small circular FABs around it (brand coral, 18pt bold text,
+      an icon) so it reads as the obvious next step rather than blending in.
+- [x] Fixed a real bug reported live: changing trip type from the map's
+      "..." menu and then opening "Set route" in the same session still
+      requested driving directions regardless of the new type (e.g. a
+      route just switched to Bike still came back as a car-shaped path) -
+      confirmed the Directions API itself does return genuinely different
+      routes per mode (a direct REST comparison of the same origin/
+      destination returned 5.8km/24min for driving vs. 6.1km/22min for
+      bicycling), so this was our bug, not an API/data limitation.
+      Root cause: `SetRouteScreen` read `group.tripType` off the
+      `ConvoyGroup` instance `MapScreen` was originally constructed with,
+      but the menu's trip-type picker only ever updates `MapScreen`'s own
+      live `_tripType` field (see the earlier trip-type entry above) - that
+      `ConvoyGroup` object itself never gets recreated, so it kept whatever
+      type was current when the map screen first opened. `SetRouteScreen`
+      now takes an explicit `tripType` parameter instead of deriving it
+      from `group.tripType`, and `MapScreen._openSetRoute` passes its live
+      `_tripType` - same pattern already used for `initialRoute` (passed
+      live from `_route`, not read off `group.route`). Verified live:
+      created a Car trip, switched it to Bike via the menu, opened "Set
+      route" (via the new CTA button above) and confirmed both the
+      camera's default zoom and the saved route now genuinely reflect Bike
+      rather than the stale Car value.
 
 ## Needed before this is usable end-to-end
 
@@ -719,20 +792,3 @@ list see [README.md](README.md).
       `battery_plus` plugin the warning above already uses) alongside the
       existing heading/speed, plus a place to surface it (roster row?
       marker badge?).
-- [ ] Trip type selector (Car, Train, Bicycle, Walk) - set from the main
-      menu, presumably per-trip rather than a global preference. Two
-      downstream effects suggested: (1) different default camera/zoom
-      distances when setting a route - a walking trip's "nearby" is a
-      cyclist's or driver's "much too zoomed in"; (2) a different, more
-      relevant set of quick-message presets per type (e.g. "Missed the
-      train" doesn't make sense for a driving trip, "Pulling over"/"Need
-      fuel" don't make sense for a walk). Would need a `tripType` field on
-      the group doc, a picker somewhere in the create-group or route-setup
-      flow (not obviously "the main menu" as asked, since trip type feels
-      more like a trip-creation-time choice than an ongoing setting -
-      worth clarifying placement before building), and the quick-message
-      preset list (`lib/utils/quick_messages.dart`) keyed off it. The
-      Directions API call itself is mode-aware too (driving/walking/
-      bicycling/transit) - currently always requests driving directions,
-      so a real implementation should probably also route accordingly,
-      not just change the camera/UI.

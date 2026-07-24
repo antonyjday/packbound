@@ -17,8 +17,9 @@ position on a shared map for the duration of the trip.
   zoom, which quick-message presets are offered, and the actual travel mode
   used to calculate routes/ETAs.
 - **Shared route & turn-by-turn navigation** — the trip owner sets a start
-  point, destination, and any stops; every member gets their own live ETA,
-  route line, and turn-by-turn directions to get there.
+  point, destination, and any stops; every member gets their own live ETA
+  (distance, duration, and estimated arrival time), route line, and
+  turn-by-turn directions to get there.
 - **Trip lifecycle** — trips auto-expire after 24h (owner can extend) or
   after 10h of inactivity, with warnings as the deadline approaches. Anyone
   can leave at any time; ownership passes automatically if the owner leaves

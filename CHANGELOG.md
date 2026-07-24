@@ -751,6 +751,32 @@ list see [README.md](README.md).
       polyline codec, invite links, location point status) is unrelated to
       recent UI/branding/trip-type work and still accurately reflects
       current behavior. 115 Dart tests total now.
+- [x] Added a live clock and an arrival-time ETA to the map screen. The
+      app bar shows the current time (just `DateTime.now()` at build
+      time, refreshed for free off the existing 5s `_staleTicker` -
+      no new timer needed), and the "You" progress chip now shows an
+      actual clock-time arrival estimate (`DateTime.now().add(_myEtaDuration!)`)
+      alongside the existing remaining distance/duration.
+- [x] Fixed the "You" progress chip's ETA getting clipped in portrait
+      on routes with stops, since `_RouteInfoChip` caps label width at
+      300 logical px. Moved the remaining-stops count out of the "You"
+      chip and onto the "Full route" chip instead, and dropped the
+      redundant "to end" wording - verified live with a 2-stop, 44mi
+      route that the full label (distance/duration/ETA) no longer
+      truncates.
+- [x] Swapped the app bar's owner flag and clock: the "★ Owner" badge
+      now sits next to the trip name (title, where the clock used to
+      be) and the clock moved to the actions row (where the badge used
+      to be). Confirmed a long trip name still just ellipsizes without
+      overlapping the badge, since the name `Text` stays wrapped in
+      `Expanded`.
+- [x] Removed the visible text labels from the create-trip screen's
+      Car/Train/Bike/Walk `SegmentedButton`, keeping icon-only segments.
+      The labels wrapped onto a second line at larger system font sizes
+      or on low-resolution screens, breaking the segmented layout. Each
+      icon keeps a `Tooltip` and `Icon.semanticLabel` set to the trip
+      type's name so it's still available on long-press/hover and to
+      screen readers.
 
 ## Needed before this is usable end-to-end
 

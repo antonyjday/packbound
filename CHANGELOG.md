@@ -795,6 +795,15 @@ list see [README.md](README.md).
       pace. All 115 tests still pass; this specific fix couldn't be
       repro'd live (needs real GPS noise while driving), so verified by
       code review + existing `classifyTurnManeuver` test coverage only.
+- [x] Follow-up to the above: a single car-calibrated
+      `movingSpeedThresholdMps` (2.5 m/s) meant Walk trips - typical pace
+      ~1.2-1.8 m/s - would almost never clear it, silently losing both
+      the turn relabeling and camera auto-follow for the whole trip.
+      Moved it onto `TripType` as `movingSpeedThresholdMps` (car/train:
+      2.5 m/s, bicycle: 2.0 m/s, walk: 0.8 m/s) so each mode gets a floor
+      suited to its own realistic speed range instead of one number
+      starving the slower ones. 118 tests now (added 3 for the new
+      per-mode getter).
 
 ## Needed before this is usable end-to-end
 

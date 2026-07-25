@@ -33,4 +33,32 @@ void main() {
       expect(TripType.car.nearbyZoom, greaterThan(TripType.train.nearbyZoom));
     });
   });
+
+  group('TripType.movingSpeedThresholdMps', () {
+    test('is lowest for walk, since typical walking pace is slowest', () {
+      expect(
+        TripType.walk.movingSpeedThresholdMps,
+        lessThan(TripType.bicycle.movingSpeedThresholdMps),
+      );
+      expect(
+        TripType.bicycle.movingSpeedThresholdMps,
+        lessThan(TripType.car.movingSpeedThresholdMps),
+      );
+    });
+
+    test('is below typical walking pace, so walk trips clear it', () {
+      const typicalWalkingSpeedMps = 1.3;
+      expect(
+        TripType.walk.movingSpeedThresholdMps,
+        lessThan(typicalWalkingSpeedMps),
+      );
+    });
+
+    test('car and train share the same threshold', () {
+      expect(
+        TripType.car.movingSpeedThresholdMps,
+        TripType.train.movingSpeedThresholdMps,
+      );
+    });
+  });
 }

@@ -54,4 +54,19 @@ enum TripType {
         TripType.bicycle => 'bicycling',
         TripType.walk => 'walking',
       };
+
+  // Below this speed (m/s), GPS-reported heading is unreliable - noisy or
+  // just stale from the last time the device was actually moving - and
+  // shouldn't be trusted for anything heading-dependent (relabeling a turn
+  // instruction relative to it, or camera follow-mode in MapScreen; see
+  // navigation_progress.dart). A single car-calibrated number would starve
+  // Walk (typical pace ~1.2-1.8 m/s, rarely if ever above a car's floor) of
+  // both features almost entirely, so each mode gets its own floor tuned to
+  // its own realistic speed range instead.
+  double get movingSpeedThresholdMps => switch (this) {
+        TripType.car => 2.5, // ~5.6mph
+        TripType.train => 2.5, // ~5.6mph - same reasoning as car
+        TripType.bicycle => 2.0, // ~4.5mph - below typical slow/uphill pace
+        TripType.walk => 0.8, // ~1.8mph - below typical walking pace
+      };
 }

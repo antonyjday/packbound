@@ -1437,7 +1437,7 @@ class _MapScreenState extends State<MapScreen> {
     final mine = points.where((p) => p.userId == _authService.uid);
     if (mine.isEmpty) return;
     final me = mine.first;
-    if (me.speed < movingSpeedThresholdMps) return; // not moving - stay put
+    if (me.speed < _tripType.movingSpeedThresholdMps) return; // not moving - stay put
 
     _animateCamera(CameraUpdate.newLatLng(LatLng(me.lat, me.lng)));
   }
@@ -1951,7 +1951,7 @@ class _MapScreenState extends State<MapScreen> {
               // as a U-turn. Otherwise fall back to the API's own (still
               // perfectly fine) wording.
               if (nextStep.maneuver == null &&
-                  myLocation.speed >= movingSpeedThresholdMps &&
+                  myLocation.speed >= _tripType.movingSpeedThresholdMps &&
                   nextStep.distanceMeters >= minReliableStepBearingMeters) {
                 final stepBearing = Geolocator.bearingBetween(
                   nextStep.startLocation.lat,

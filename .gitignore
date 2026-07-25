@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Release signing material - never commit the real keystore or its
+# passwords, whenever build.gradle.kts moves off the debug signingConfig
+# it currently uses. Added pre-emptively, before one exists, since this is
+# the kind of thing you want ignored before the first `git add`, not after.
+*.jks
+*.keystore
+key.properties

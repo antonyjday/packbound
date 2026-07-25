@@ -881,6 +881,29 @@ list see [README.md](README.md).
       naming it. Verified live: app resumes straight to the signed-in
       home screen with no crash/hang (the new subscription's cold-start
       path). 120 tests now (2 new for `updateLastSeen`); analyzer clean.
+- [x] Added a second, secondary button under the map screen's "Set
+      route" CTA - amber background, white text, reads "Just track" -
+      for groups on a familiar/well-known route who just want live
+      positions, not turn-by-turn or ETA. Persisted as a new
+      `routeSkipped` bool on the group doc (owner-only, same
+      `isOwner()`-gated update rule as the other owner settings - no
+      firestore.rules change needed), rather than local widget state,
+      since a local-only dismissal would reappear every time the app
+      restarts during the same 24h trip. Dismissing only hides the CTA
+      banner - "Set route" stays reachable in the owner's "..." menu
+      the whole time, and actually setting a route makes `routeSkipped`
+      moot anyway since the banner's condition already requires
+      `route == null`. Verified live: banner (both buttons) disappears
+      immediately after tapping the new one, "Set route" still present
+      in the menu afterward. Also chased down an ANR hit during manual
+      testing (create trip -> Set route -> back -> back) - the main
+      thread's stack showed it blocked entirely inside Android's own
+      `LocationManager.removeNmeaListener` binder call, several layers
+      below any app code; didn't reproduce on a careful retry, and
+      nothing in this change touches location code at all - logged as
+      emulator location-service flakiness, not an app bug. 124 tests
+      now (4 new: `ConvoyGroup` toMap/fromDoc coverage +
+      `GroupService.setRouteSkipped`); analyzer clean.
 
 ## Needed before this is usable end-to-end
 

@@ -22,7 +22,9 @@ Marketing site + privacy policy for packbound.net live in
 - **Shared route & turn-by-turn navigation** — the trip owner sets a start
   point, destination, and any stops; every member gets their own live ETA
   (distance, duration, and estimated arrival time), route line, and
-  turn-by-turn directions to get there.
+  turn-by-turn directions to get there. Route optional — a group on a
+  familiar route can skip straight to just tracking each other's live
+  position instead.
 - **Trip lifecycle** — trips auto-expire after 24h (owner can extend) or
   after 10h of inactivity, with warnings as the deadline approaches. Anyone
   can leave at any time; ownership passes automatically if the owner leaves

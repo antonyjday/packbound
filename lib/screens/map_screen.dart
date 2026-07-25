@@ -189,6 +189,10 @@ class _MapScreenState extends State<MapScreen> {
   // to reopen the map screen.
   TripType _tripType = TripType.car;
 
+  // Owner has dismissed the "Set route" CTA banner for this trip - same
+  // seed-then-sync pattern as _membersCanInvite/_tripType above.
+  bool _routeSkipped = false;
+
   // Banner is dismissible, but reappears if the severity level goes up
   // (e.g. dismissed the 4h-out warning, but the 1h-out one still shows).
   int _dismissedWarningLevel = 0;
@@ -208,6 +212,7 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     _membersCanInvite = widget.group.membersCanInvite;
     _tripType = widget.group.tripType;
+    _routeSkipped = widget.group.routeSkipped;
     _staleTicker = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) setState(() {});
     });
@@ -287,6 +292,11 @@ class _MapScreenState extends State<MapScreen> {
             final newTripType = TripType.fromName(data?['tripType']);
             if (newTripType != _tripType && mounted) {
               setState(() => _tripType = newTripType);
+            }
+
+            final newRouteSkipped = data?['routeSkipped'] ?? false;
+            if (newRouteSkipped != _routeSkipped && mounted) {
+              setState(() => _routeSkipped = newRouteSkipped);
             }
 
             if (status == 'ended' && !_groupEnded) {
@@ -785,6 +795,20 @@ class _MapScreenState extends State<MapScreen> {
       await _groupService.clearRoute(widget.group.id);
     } catch (e) {
       if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
+  Future<void> _skipSettingRoute() async {
+    setState(() => _routeSkipped = true); // optimistic; listener reconciles
+    try {
+      await _groupService.setRouteSkipped(widget.group.id, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _routeSkipped = false);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('$e')));
@@ -2293,31 +2317,64 @@ class _MapScreenState extends State<MapScreen> {
                     // buried in the "..." menu. Deliberately temporary: shows
                     // only until a route exists (then this whole block stops
                     // rendering - the menu item remains as "Edit route"
-                    // going forward), and only for the owner, since they're
-                    // the only one who can actually set it.
-                    if (_isOwner && !_groupEnded && route == null)
+                    // going forward) or the owner dismisses it below, and
+                    // only for the owner, since they're the only one who can
+                    // actually set a route.
+                    if (_isOwner && !_groupEnded && route == null && !_routeSkipped)
                       Align(
                         alignment: const Alignment(0, 0.35),
-                        child: FilledButton.icon(
-                          onPressed: _openSetRoute,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: BrandColors.coral,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 28,
-                              vertical: 18,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: _openSetRoute,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: BrandColors.coral,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 28,
+                                  vertical: 18,
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(32),
+                                ),
+                                elevation: 6,
+                              ),
+                              icon: const Icon(Icons.alt_route, size: 26),
+                              label: const Text('Set route'),
                             ),
-                            textStyle: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
+                            const SizedBox(height: 10),
+                            // For a group that already knows where it's
+                            // going (a familiar commute/route) and just
+                            // wants to see live positions - no turn-by-turn
+                            // or ETA needed. Purely dismisses this banner;
+                            // "Set route" stays available in the "..." menu
+                            // if they change their mind later.
+                            TextButton(
+                              onPressed: _skipSettingRoute,
+                              style: TextButton.styleFrom(
+                                backgroundColor: BrandColors.amber,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                elevation: 3,
+                              ),
+                              child: const Text('Just track'),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(32),
-                            ),
-                            elevation: 6,
-                          ),
-                          icon: const Icon(Icons.alt_route, size: 26),
-                          label: const Text('Set route'),
+                          ],
                         ),
                       ),
 

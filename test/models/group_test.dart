@@ -38,6 +38,11 @@ void main() {
       final map = buildSample(tripType: TripType.bicycle).toMap();
       expect(map['tripType'], 'bicycle');
     });
+
+    test('defaults routeSkipped to false for a newly created group', () {
+      final map = buildSample().toMap();
+      expect(map['routeSkipped'], false);
+    });
   });
 
   group('ConvoyGroup.fromDoc', () {
@@ -70,6 +75,30 @@ void main() {
         'status': 'active',
       });
       expect(group.tripType, TripType.car);
+    });
+
+    test('parses a stored routeSkipped', () async {
+      final group = await writeAndRead({
+        'name': 'Trip',
+        'createdBy': 'user1',
+        'inviteCode': 'AB2XQ9',
+        'inviteExpiresAt': Timestamp.now(),
+        'status': 'active',
+        'routeSkipped': true,
+      });
+      expect(group.routeSkipped, true);
+    });
+
+    test('defaults routeSkipped to false for a group with no such field', () async {
+      // Simulates a group created before this field existed.
+      final group = await writeAndRead({
+        'name': 'Trip',
+        'createdBy': 'user1',
+        'inviteCode': 'AB2XQ9',
+        'inviteExpiresAt': Timestamp.now(),
+        'status': 'active',
+      });
+      expect(group.routeSkipped, false);
     });
   });
 }

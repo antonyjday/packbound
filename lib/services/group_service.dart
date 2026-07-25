@@ -201,6 +201,17 @@ class GroupService {
         .update({'route': FieldValue.delete()});
   }
 
+  /// Owner-only: permanently dismisses the map screen's "Set route" CTA
+  /// banner for this trip, for groups who already know where they're going
+  /// and just want live positions. Same isOwner()-gated update rule as the
+  /// other owner settings above - no rules change needed.
+  Future<void> setRouteSkipped(String groupId, bool skipped) {
+    return _db
+        .collection('groups')
+        .doc(groupId)
+        .update({'routeSkipped': skipped});
+  }
+
   /// Removes the given user from the group - anyone can leave, including
   /// the owner. If the leaving user is the owner, ownership passes to
   /// whichever remaining member has been in the group the longest (the

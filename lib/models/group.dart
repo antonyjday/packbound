@@ -14,6 +14,14 @@ class ConvoyGroup {
   final RoutePlan? route; // owner-set shared trip plan; null if none set yet
   final bool membersCanInvite; // owner-controlled; false hides the share/invite button for non-owners
 
+  // Owner has explicitly dismissed the "Set route" prompt for this trip -
+  // e.g. a group that already knows a familiar route and just wants live
+  // positions, not turn-by-turn. Purely suppresses the map screen's CTA
+  // banner; "Set route"/"Edit route" stays available in the owner's menu
+  // regardless, and setting a real route makes this moot either way since
+  // the banner's own condition already requires route == null.
+  final bool routeSkipped;
+
   // The *current* owner's uid - distinct from createdBy (which never
   // changes). Kept in sync with the members subcollection's role field
   // (see GroupService.leaveGroup) purely so firestore.rules can cheaply
@@ -39,6 +47,7 @@ class ConvoyGroup {
     this.expiryWarningLevel = 0,
     this.route,
     this.membersCanInvite = true,
+    this.routeSkipped = false,
     this.ownerId,
     this.tripType = TripType.car,
   });
@@ -59,6 +68,7 @@ class ConvoyGroup {
           ? RoutePlan.fromMap(Map<String, dynamic>.from(routeData))
           : null,
       membersCanInvite: data['membersCanInvite'] ?? true,
+      routeSkipped: data['routeSkipped'] ?? false,
       ownerId: data['ownerId'],
       tripType: TripType.fromName(data['tripType']),
     );
@@ -75,6 +85,7 @@ class ConvoyGroup {
         'tripExpiresAt': tripExpiresAt,
         'expiryWarningLevel': 0,
         'membersCanInvite': true,
+        'routeSkipped': false,
         'ownerId': ownerId,
         'tripType': tripType.name,
       };

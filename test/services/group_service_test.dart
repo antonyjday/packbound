@@ -281,6 +281,12 @@ void main() {
       await service.updateTripType(group.id, TripType.walk);
       expect((await groupData(group.id))?['tripType'], 'walk');
     });
+
+    test('setRouteSkipped updates the flag', () async {
+      final group = await service.createGroup(name: 'Trip', ownerId: 'owner-1');
+      await service.setRouteSkipped(group.id, true);
+      expect((await groupData(group.id))?['routeSkipped'], true);
+    });
   });
 
   group('sendQuickMessage / messagesStream', () {

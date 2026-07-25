@@ -37,7 +37,7 @@ android {
         // background location permission doesn't exist until API 29 anyway,
         // so lower devices would only get foreground updates.
         minSdk = 26
-        targetSdk = 34
+        targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

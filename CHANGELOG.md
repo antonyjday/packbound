@@ -924,6 +924,23 @@ list see [README.md](README.md).
       user: adding the new keystore's SHA-1 to the Maps API key and
       Firebase's Android app config (Console-only steps), and the actual
       Play Console submission itself.
+- [x] Release keystore's SHA-1/SHA-256 added to both the Maps API key's
+      Android restriction and Firebase's Android app config (done directly
+      in each Console by the user) - release-signed builds now actually
+      work end-to-end, verified by installing a release build and manually
+      testing Maps/routing.
+- [x] Bumped `targetSdk` from a hardcoded `34` to `flutter.targetSdkVersion`
+      (currently resolves to 36), matching how `compileSdk` already tracks
+      the Flutter SDK rather than pinning to a value that'll eventually
+      fall below Google Play's minimum target API requirement (which moves
+      up annually). No manifest changes needed - `AndroidManifest.xml`
+      already declares `foregroundServiceType="location"` and
+      `POST_NOTIFICATIONS`, which is what the API 34+ jump actually
+      requires. Verified: `flutter test` (124/124) and a manual pass on a
+      freshly-booted emulator (cold start, notification permission,
+      sign-in screen) with no edge-to-edge/inset regressions - the app has
+      no custom `SystemChrome` calls, so it rides Flutter's Material
+      defaults.
 
 ## Needed before this is usable end-to-end
 
@@ -931,12 +948,6 @@ list see [README.md](README.md).
       `GoogleService-Info.plist` (needs to be regenerated, ideally from a Mac
       with Xcode installed). iOS hasn't been built or run at all yet.
 - [ ] iOS Google Maps API key — still a placeholder in `AppDelegate.swift`.
-- [ ] Android release keystore now exists (see the Play Store prep entry
-      below), but its SHA-1 still needs adding to the Maps API key's
-      Android restriction in Google Cloud Console (and to the Firebase
-      Android app's SHA fingerprints) before a release-signed build's
-      Maps/Directions/Places calls will actually work - Console-only
-      steps, not doable from the repo.
 
 ## Known gaps / follow-ups called out in the code
 

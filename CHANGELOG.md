@@ -904,6 +904,26 @@ list see [README.md](README.md).
       emulator location-service flakiness, not an app bug. 124 tests
       now (4 new: `ConvoyGroup` toMap/fromDoc coverage +
       `GroupService.setRouteSkipped`); analyzer clean.
+- [x] First pass of Play Store submission prep. Generated a real release
+      keystore (`packbound-upload` alias) deliberately stored outside the
+      repo entirely (`C:\Users\anton\android-keystores\` - defense in
+      depth beyond `.gitignore`, now that the repo is public), wired into
+      `build.gradle.kts` via `android/key.properties` (gitignored) with a
+      fallback to debug signing when that file's absent, so a fresh
+      checkout with no keystore still builds. Verified both
+      `flutter build apk --release` and `flutter build appbundle
+      --release` produce artifacts actually signed with the new cert
+      (checked via `apksigner`/`jarsigner`, not just assumed). Also wrote
+      `PLAY_STORE_SETUP.md` - store listing copy (short/full description),
+      Data Safety questionnaire answers, and the background-location
+      permissions declaration justification, all matching what the code
+      and privacy policy actually say rather than generic boilerplate -
+      plus a 1024x500 feature graphic built from the real brand assets
+      and four real phone screenshots (home screen, live route/ETA, dark
+      mode, quick messages) in `store-assets/`. Deliberately left for the
+      user: adding the new keystore's SHA-1 to the Maps API key and
+      Firebase's Android app config (Console-only steps), and the actual
+      Play Console submission itself.
 
 ## Needed before this is usable end-to-end
 
@@ -911,10 +931,12 @@ list see [README.md](README.md).
       `GoogleService-Info.plist` (needs to be regenerated, ideally from a Mac
       with Xcode installed). iOS hasn't been built or run at all yet.
 - [ ] iOS Google Maps API key — still a placeholder in `AppDelegate.swift`.
-- [ ] Release signing — the current Android Maps API key is restricted to the
-      debug keystore's fingerprint only. Generate a release keystore and add
-      its SHA-1 to the key's restrictions (or create a separate release key)
-      before shipping a release build.
+- [ ] Android release keystore now exists (see the Play Store prep entry
+      below), but its SHA-1 still needs adding to the Maps API key's
+      Android restriction in Google Cloud Console (and to the Firebase
+      Android app's SHA fingerprints) before a release-signed build's
+      Maps/Directions/Places calls will actually work - Console-only
+      steps, not doable from the repo.
 
 ## Known gaps / follow-ups called out in the code
 

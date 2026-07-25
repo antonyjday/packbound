@@ -778,6 +778,24 @@ list see [README.md](README.md).
       type's name so it's still available on long-press/hover and to
       screen readers.
 
+- [x] Fixed a real bug reported live: turn-by-turn nav would sometimes say
+      "Make a U-turn" while driving correctly. Root cause: every throttled
+      live-ETA recalculation (`_recalculateMyEta`, every ~2min/300m) asks
+      the Directions API for a brand-new route from the current raw
+      lat/lng, with no heading - the legacy API has no such parameter.
+      Google often snaps that origin to the nearest road node, so the
+      route's first step (always maneuver-less - see
+      `classifyTurnManeuver`'s doc comment) can be a tiny snap-to-road
+      segment whose start->end bearing is close to meaningless, but was
+      still being compared against the device's live GPS heading to
+      guess left/right/U-turn. Added a `minReliableStepBearingMeters`
+      (25m) guard - falls back to the API's own "Head north on X" wording
+      below that - and raised `movingSpeedThresholdMps` from 1.0 to 2.5
+      m/s, since GPS heading itself is noisiest right around walking
+      pace. All 115 tests still pass; this specific fix couldn't be
+      repro'd live (needs real GPS noise while driving), so verified by
+      code review + existing `classifyTurnManeuver` test coverage only.
+
 ## Needed before this is usable end-to-end
 
 - [ ] iOS Firebase config — `flutterfire configure` didn't produce a

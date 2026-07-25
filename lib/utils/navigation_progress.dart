@@ -2,11 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/route_plan.dart';
 
-/// Below this speed (m/s, ~2.2mph), GPS-reported heading is unreliable -
+/// Below this speed (m/s, ~5.6mph), GPS-reported heading is unreliable -
 /// noisy or just stale from the last time the device was actually moving -
 /// and shouldn't be trusted for anything heading-dependent (relabeling a
 /// turn instruction relative to it, or camera follow-mode in MapScreen).
-const movingSpeedThresholdMps = 1.0;
+/// Raised from an earlier 1.0 (~2.2mph) after live testing showed even
+/// "moving" GPS headings around walking pace were noisy enough to
+/// occasionally misclassify a straight-ahead step as a U-turn.
+const movingSpeedThresholdMps = 2.5;
+
+/// Below this length, a step's start->end bearing is too short a baseline
+/// to trust as "the direction this road actually points" - e.g. a route
+/// recalculated from the live-GPS-snapped-to-road origin often has a tiny
+/// first "step" from that snapped point to the nearest real intersection,
+/// whose bearing can point almost anywhere and has nothing to do with the
+/// road's real heading. Only relevant to [classifyTurnManeuver]'s use on a
+/// leg's first step (see its doc comment) - every other step already has a
+/// real API-provided maneuver and doesn't go through this heading compare.
+const minReliableStepBearingMeters = 25.0;
 
 /// How close to a turn-by-turn step's endpoint counts as "reached" - much
 /// tighter than [waypointArrivalRadiusMeters] in route_progress.dart, since

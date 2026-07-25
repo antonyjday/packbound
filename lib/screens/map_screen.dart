@@ -1942,10 +1942,17 @@ class _MapScreenState extends State<MapScreen> {
               // direction> on/toward X" steps - relabel those relative to
               // this device's own heading instead (see
               // classifyTurnManeuver), but only while actually moving fast
-              // enough for that heading to be trustworthy; otherwise fall
-              // back to the API's own (still perfectly fine) wording.
+              // enough for that heading to be trustworthy, AND only if the
+              // step itself is long enough for its start->end bearing to
+              // mean anything (see minReliableStepBearingMeters) - a fresh
+              // live recalculation's first step is often a short
+              // snap-to-road segment whose bearing is essentially noise,
+              // which was misclassifying plenty of straight-ahead driving
+              // as a U-turn. Otherwise fall back to the API's own (still
+              // perfectly fine) wording.
               if (nextStep.maneuver == null &&
-                  myLocation.speed >= movingSpeedThresholdMps) {
+                  myLocation.speed >= movingSpeedThresholdMps &&
+                  nextStep.distanceMeters >= minReliableStepBearingMeters) {
                 final stepBearing = Geolocator.bearingBetween(
                   nextStep.startLocation.lat,
                   nextStep.startLocation.lng,

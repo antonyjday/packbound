@@ -51,3 +51,7 @@ app.*.map.json
 *.jks
 *.keystore
 key.properties
+
+# Firebase CLI's local deploy cache (e.g. hosting file-hash cache) -
+# speeds up repeat `firebase deploy` runs, not meant for version control.
+.firebase/

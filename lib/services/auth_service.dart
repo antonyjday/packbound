@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Handles user identity. Anonymous auth is enough for a convoy app -
+/// Handles user identity. Anonymous auth is enough for a trip-sharing app -
 /// no email/password friction needed, but each device gets a stable uid.
 class AuthService {
   final FirebaseAuth _auth;
@@ -37,4 +37,18 @@ class AuthService {
   }
 
   Future<void> signOut() => _auth.signOut();
+
+  /// Bumps this device's `lastSeen` without touching anything else on the
+  /// user doc - called on every app open (see main.dart), not just first
+  /// sign-in, so it actually reflects recent activity rather than just
+  /// account-creation time. A no-op if nobody's signed in yet (e.g. this
+  /// fires from the same auth-state stream the sign-in screen itself
+  /// listens to, before a first sign-in has happened).
+  Future<void> updateLastSeen() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    await _db.collection('users').doc(user.uid).set({
+      'lastSeen': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
 }

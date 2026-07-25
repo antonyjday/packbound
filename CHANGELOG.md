@@ -863,6 +863,24 @@ list see [README.md](README.md).
       can't be renamed anyway) - see the TODO below for why the former
       is a separate, bigger piece of work. All 118 tests still pass;
       analyzer clean (same 4 pre-existing info-level lints as baseline).
+- [x] Added `AuthService.updateLastSeen()` and wired it into a dedicated
+      `authStateChanges` subscription in `main.dart` (a separate
+      `StreamSubscription` alongside the existing `StreamBuilder`, not
+      inside its `builder` - that gets re-invoked on unrelated rebuilds
+      like a theme toggle using its last-cached snapshot, which would've
+      re-written `lastSeen` far more often than intended). Previously
+      `lastSeen` was only ever set once, at first sign-in
+      (`signInAnonymously`) - reopening the app on a later day never
+      touched it, so it really meant "account created at," not "last
+      active." Now it updates on every app open (cold start resuming a
+      persisted session, or a fresh sign-in), giving an actual "active
+      in the last N days" signal queryable straight from the existing
+      `users` collection - not new tracking, just making a field that
+      was already being collected for a real reason actually mean what
+      its name says. Added a line to the privacy policy explicitly
+      naming it. Verified live: app resumes straight to the signed-in
+      home screen with no crash/hang (the new subscription's cold-start
+      path). 120 tests now (2 new for `updateLastSeen`); analyzer clean.
 
 ## Needed before this is usable end-to-end
 

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -68,5 +69,29 @@ void main() {
     await service.signOut();
 
     expect(service.uid, isNull);
+  });
+
+  group('updateLastSeen', () {
+    test('is a no-op when nobody is signed in', () async {
+      await service.updateLastSeen();
+
+      final docs = await db.collection('users').get();
+      expect(docs.docs, isEmpty);
+    });
+
+    test('bumps lastSeen without touching other fields on the doc', () async {
+      final user = await service.signInAnonymously('Alex');
+      await db.collection('users').doc(user.uid).set(
+        {'fcmToken': 'existing-token'},
+        SetOptions(merge: true),
+      );
+
+      await service.updateLastSeen();
+
+      final doc = await db.collection('users').doc(user.uid).get();
+      expect(doc.data()?['displayName'], 'Alex');
+      expect(doc.data()?['fcmToken'], 'existing-token');
+      expect(doc.data()?['lastSeen'], isNotNull);
+    });
   });
 }

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'firebase_options.dart';
@@ -19,8 +21,36 @@ void main() async {
   runApp(const ConvoyApp());
 }
 
-class ConvoyApp extends StatelessWidget {
+class ConvoyApp extends StatefulWidget {
   const ConvoyApp({super.key});
+
+  @override
+  State<ConvoyApp> createState() => _ConvoyAppState();
+}
+
+class _ConvoyAppState extends State<ConvoyApp> {
+  late final StreamSubscription<User?> _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // A side-effect subscription separate from the StreamBuilder below,
+    // which rebuilds UI on every parent rebuild (e.g. a theme toggle) using
+    // its last-cached snapshot, not just on an actual new stream event -
+    // doing this there would re-write lastSeen far more often than
+    // intended. This fires exactly once per real auth-state emission:
+    // once on cold start (whether resuming a persisted session or not
+    // signed in yet) and again on every future sign-in.
+    _authSub = AuthService().authStateChanges.listen((user) {
+      if (user != null) AuthService().updateLastSeen();
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

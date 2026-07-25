@@ -941,6 +941,26 @@ list see [README.md](README.md).
       sign-in screen) with no edge-to-edge/inset regressions - the app has
       no custom `SystemChrome` calls, so it rides Flutter's Material
       defaults.
+- [x] Voice messages no longer auto-play the instant the alert dialog
+      appears (`map_screen.dart`, `_maybeShowNextMessageAlert`) - a clip
+      starting to talk on its own was startling, especially with the
+      volume up while driving. The clip now preloads silently in the
+      background as soon as the dialog shows, and a play/pause button
+      (`StreamBuilder<PlayerState>` over the `just_audio` player) lets the
+      recipient start it whenever they're ready; replaying after it
+      finishes seeks back to the start first. Multiple voice messages
+      received before the first is played were already queued FIFO one
+      dialog at a time (`_pendingMessageAlerts`) - that queue needed no
+      changes, since it already gates on the dialog being dismissed, not on
+      playback finishing. Also fixed: `just_audio`'s `playing` flag stays
+      `true` after a clip runs to completion (it only reflects "not
+      paused", not "still producing audio"), so the button folds in
+      `processingState == completed` to correctly revert to a play icon
+      once the clip actually finishes, ready to replay in case it was
+      missed the first time. `flutter analyze`/`flutter test` clean
+      (124/124); manually verified on the emulator end-to-end (play ->
+      auto-revert on completion -> replay) using a real uploaded voice
+      clip, not just the dialog's appearance.
 
 ## Needed before this is usable end-to-end
 

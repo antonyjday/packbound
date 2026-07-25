@@ -1146,15 +1146,17 @@ class _MapScreenState extends State<MapScreen> {
     final message = _pendingMessageAlerts.removeAt(0);
     _messageAlertShowing = true;
 
-    // Voice clips auto-play as soon as the dialog appears - the point of
-    // push-to-talk is hearing it immediately, not having to also tap play
-    // while driving. Playback stops (via dispose) the moment the dialog is
+    // Voice clips load in the background as soon as the dialog appears, but
+    // wait for an explicit tap on the play button below rather than playing
+    // immediately - a clip starting to talk on its own the moment the
+    // dialog pops up was startling, especially for anyone driving with the
+    // volume up. Playback stops (via dispose) the moment the dialog is
     // dismissed, whether that's the OK button or (defensively) the screen
     // going away mid-playback.
     AudioPlayer? player;
     if (message.isVoice) {
       player = AudioPlayer();
-      player.setUrl(message.audioUrl!).then((_) => player?.play()).catchError((_) {});
+      player.setUrl(message.audioUrl!).catchError((_) => null);
     }
 
     showDialog<void>(
@@ -1172,10 +1174,40 @@ class _MapScreenState extends State<MapScreen> {
         ),
         title: Text(message.senderName, textAlign: TextAlign.center),
         content: message.isVoice
-            ? Text(
-                'Voice message (${message.audioDurationSeconds ?? 0}s)',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 18),
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Voice message (${message.audioDurationSeconds ?? 0}s)',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                  const SizedBox(height: 16),
+                  StreamBuilder<PlayerState>(
+                    stream: player!.playerStateStream,
+                    builder: (context, snapshot) {
+                      final completed = snapshot.data?.processingState ==
+                          ProcessingState.completed;
+                      // just_audio leaves `playing` true after a clip runs
+                      // to the end (it only reflects "not paused") - fold in
+                      // `completed` so the button reverts to a play icon
+                      // once the clip actually finishes, ready to replay.
+                      final playing = (snapshot.data?.playing ?? false) && !completed;
+                      return IconButton.filled(
+                        iconSize: 40,
+                        icon: Icon(playing ? Icons.pause : Icons.play_arrow),
+                        onPressed: () async {
+                          if (playing) {
+                            await player!.pause();
+                          } else {
+                            if (completed) await player!.seek(Duration.zero);
+                            await player!.play();
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ],
               )
             : Text(
                 message.text,

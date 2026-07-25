@@ -43,7 +43,7 @@ a specific UX):
    `GeneratedPluginRegistrant.register`.
 4. Apple App Store review is strict about background location — your
    privacy policy and in-app explanation must clearly state it's used
-   only for convoy/group location sharing, and ideally the app should
+   only for trip/group location sharing, and ideally the app should
    visibly indicate (e.g. a persistent banner) when sharing is active.
    `showBackgroundLocationIndicator: true` (already set) helps satisfy this.
 5. Push notifications (trip-expiry warnings, `NotificationService`) are
@@ -56,46 +56,49 @@ a specific UX):
 ## Testing background behavior
 
 - Android: start sharing, press Home, watch for the persistent
-  "Convoy is sharing your location" notification — that confirms the
+  "Packbound is sharing your location" notification — that confirms the
   foreground service is alive and updates keep flowing.
 - iOS: start sharing, lock the device or switch apps — you should see the
   blue "location in use" pill/bar at the top of the screen periodically.
 - Both: verify Firestore `groups/{id}/locations/{uid}.updatedAt` keeps
   advancing while the app is backgrounded, not just in foreground.
 
-## Invite deep links (`convoy://join/CODE`)
+## Invite deep links (`packbound://join/CODE`)
 
 Both manifests are already wired up (Android intent-filter, iOS
-`CFBundleURLTypes`) to open the app when someone taps a
-`convoy://join/CODE` link — from the share sheet in `InviteScreen`, a
-text message, etc. The `DeepLinkService` in `lib/services` picks it up
-and `HomeScreen` auto-joins once the user is signed in.
+`CFBundleURLTypes` in `ios/Runner/Info.plist`) to open the app when
+someone taps a `packbound://join/CODE` link — from the share sheet in
+`InviteScreen`, a text message, etc. The `DeepLinkService` in
+`lib/services` picks it up and `HomeScreen` auto-joins once the user is
+signed in.
 
-One thing to fix before shipping: in `Info-additions.plist`, replace
-`com.yourcompany.convoy` in `CFBundleURLName` with your actual bundle
-identifier (matches whatever's in your Xcode project's Signing &
-Capabilities tab).
+One thing to fix before shipping for iOS: `Info.plist`'s
+`CFBundleURLName` is still `com.example.convoy.convoyApp` (the
+pre-rebrand bundle ID) — update it to match whatever's actually in your
+Xcode project's Signing & Capabilities tab once iOS gets its own
+Packbound-branded bundle identifier.
 
-**Limitation of a custom scheme (`convoy://`) vs. a universal/app link
-(`https://yourdomain.com/join/CODE`):** a custom scheme only works if the
+**Limitation of a custom scheme (`packbound://`) vs. a universal/app link
+(`https://packbound.net/join/CODE`):** a custom scheme only works if the
 app is already installed — tapping it with the app not installed just
 fails silently (iOS) or offers nothing useful (Android), and it won't
 unfurl as a nice preview in a text message. A universal/app link degrades
 gracefully to a normal webpage (e.g. "Get the app" + a way to still see
 the invite) and looks like a real link everywhere. Upgrading requires:
 
-- A real domain you control.
+- A real domain you control (packbound.net already exists - see
+  `website/`).
 - Hosting `.well-known/apple-app-site-association` (iOS) and
   `.well-known/assetlinks.json` (Android) at that domain, referencing
   your app's Team ID/bundle ID and SHA-256 signing cert fingerprint.
-- Adding the `applinks:yourdomain.com` associated domain (iOS,
+- Adding the `applinks:packbound.net` associated domain (iOS,
   Signing & Capabilities) and an `autoVerify="true"` intent-filter with
-  `android:host="yourdomain.com"` (Android manifest) alongside the
+  `android:host="packbound.net"` (Android manifest) alongside the
   existing custom-scheme one.
 
 Not required to ship the current version — the custom scheme works fine
 for "tap link in a message, app opens, code pre-filled" as long as
 everyone in the group already has the app installed, which is the
-realistic case for convoy members. Worth revisiting if you want the
+realistic case for a travel group. Worth revisiting if you want the
 invite link to also work as a soft app-install prompt for someone who
-doesn't have Convoy yet.
+doesn't have Packbound yet.

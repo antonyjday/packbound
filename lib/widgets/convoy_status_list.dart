@@ -109,7 +109,7 @@ class ConvoyStatusList extends StatelessWidget {
               if (isOwner && !isMe && onRemove != null)
                 IconButton(
                   icon: const Icon(Icons.person_remove, color: Colors.red),
-                  tooltip: 'Remove from convoy',
+                  tooltip: 'Remove from trip',
                   onPressed: () => onRemove!(p),
                 ),
             ],

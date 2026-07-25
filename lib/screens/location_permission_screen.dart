@@ -99,7 +99,7 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen> {
               _bulletRow(
                 Icons.groups,
                 'Only your group can see you',
-                'Your position is only visible to members of this convoy, never anyone else.',
+                'Your position is only visible to members of this trip, never anyone else.',
               ),
               _bulletRow(
                 Icons.timer_outlined,

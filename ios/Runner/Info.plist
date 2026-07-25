@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Convoy App</string>
+	<string>Packbound</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>convoy_app</string>
+	<string>packbound_app</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -69,15 +69,15 @@
 
 	<!-- Shown when requesting "while using" permission -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Convoy uses your location to show your position to other members of your travel group.</string>
+	<string>Packbound uses your location to show your position to other members of your travel group.</string>
 
 	<!-- Shown when requesting "always" permission (needed for background sharing) -->
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Convoy needs background location access so your group can see your position even while the app is minimized during your trip.</string>
+	<string>Packbound needs background location access so your group can see your position even while the app is minimized during your trip.</string>
 
 	<!-- Legacy key, still required on some iOS versions for "always" access -->
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Convoy needs background location access so your group can see your position even while the app is minimized during your trip.</string>
+	<string>Packbound needs background location access so your group can see your position even while the app is minimized during your trip.</string>
 
 	<!-- Enables the "Location updates" background mode -->
 	<key>UIBackgroundModes</key>
@@ -85,8 +85,8 @@
 		<string>location</string>
 	</array>
 
-	<!-- Registers the convoy:// custom URL scheme so tapping a
-	     convoy://join/CODE invite link opens this app -->
+	<!-- Registers the packbound:// custom URL scheme so tapping a
+	     packbound://join/CODE invite link opens this app -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -94,7 +94,7 @@
 			<string>com.example.convoy.convoyApp</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>convoy</string>
+				<string>packbound</string>
 			</array>
 		</dict>
 	</array>

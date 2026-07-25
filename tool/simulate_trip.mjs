@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Manual multi-participant test: creates a Convoy trip with 3 members
+// Manual multi-participant test: creates a Packbound trip with 3 members
 // converging on a shared destination at a constant speed, and drives 2 real
-// emulators through it so you can watch the live map. See tool/README.md.
+// emulators through it so you can watch the live map.
 //
 // Usage: node tool/simulate_trip.mjs
 // Requires: an Android emulator already running and visible (default
@@ -27,7 +27,7 @@ const SAFETY_CAP_MINUTES = 20;
 
 const PROJECT_ID = 'convoy-app-ajd';
 const WEB_API_KEY = 'AIzaSyCdXpPmF_phYAvM0m2EQqwmVTCG-GWMCPA'; // android client key, from lib/firebase_options.dart
-const PACKAGE = 'com.example.convoy.convoy_app';
+const PACKAGE = 'net.packbound.app';
 const APK_PATH = 'build/app/outputs/flutter-apk/app-debug.apk';
 
 const VISIBLE_SERIAL = process.env.CONVOY_VISIBLE_SERIAL || 'emulator-5554';
@@ -227,7 +227,7 @@ async function joinAndDiscoverMember(serial, groupId, inviteCode, knownUids, pol
     '-a',
     'android.intent.action.VIEW',
     '-d',
-    `convoy://join/${inviteCode}`,
+    `packbound://join/${inviteCode}`,
     PACKAGE,
   );
   for (let i = 0; i < 40; i++) {
@@ -282,7 +282,7 @@ async function ensureSharingStarted(serial, label) {
 
 // Finds the first-run "Your name" sign-in screen via the accessibility tree,
 // same approach as dumpFabState above. Only present on a device that's
-// never completed Convoy's anonymous sign-in before (e.g. a freshly
+// never completed Packbound's anonymous sign-in before (e.g. a freshly
 // created AVD/emulator) - a device with a persisted session (like the
 // visible emulator, reused across manual test sessions) goes straight to
 // HomeScreen instead, so this returns null there.

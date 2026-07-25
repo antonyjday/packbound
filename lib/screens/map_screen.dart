@@ -429,7 +429,7 @@ class _MapScreenState extends State<MapScreen> {
           Expanded(
             child: Text(
               _isOwner
-                  ? 'Trip ends in $label. Extend it now if the convoy isn\'t done yet.'
+                  ? 'Trip ends in $label. Extend it now if you\'re not done yet.'
                   : 'Trip ends in $label. Ask the owner to extend if you\'re not done.',
               style: const TextStyle(
                 color: Colors.white,
@@ -603,9 +603,9 @@ class _MapScreenState extends State<MapScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Removed from convoy'),
+        title: const Text('Removed from trip'),
         content: const Text(
-          "The owner has removed you from this convoy. You'll need a new "
+          "The owner has removed you from this trip. You'll need a new "
           'invite to rejoin.',
         ),
         actions: [
@@ -1622,7 +1622,7 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  /// Owner-only: confirms, then removes a member from the convoy entirely
+  /// Owner-only: confirms, then removes a member from the trip entirely
   /// (see GroupService.removeMember) - [sheetContext] is the roster bottom
   /// sheet's own context, used both to anchor the confirmation dialog and
   /// to close the sheet afterward, same pattern as onSelect above.
@@ -1633,7 +1633,7 @@ class _MapScreenState extends State<MapScreen> {
     final confirmed = await showDialog<bool>(
       context: sheetContext,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Remove from convoy?'),
+        title: const Text('Remove from trip?'),
         content: Text(
           '${point.displayName} will be removed from the group and can no '
           "longer share or see the group's location. They can rejoin with a "

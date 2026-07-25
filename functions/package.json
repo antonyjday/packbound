@@ -1,6 +1,6 @@
 {
   "name": "functions",
-  "description": "Convoy cleanup functions - auto-end inactive groups and purge stale location data",
+  "description": "Packbound cleanup functions - auto-end inactive groups and purge stale location data",
   "engines": {
     "node": "20"
   },

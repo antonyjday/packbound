@@ -822,6 +822,47 @@ list see [README.md](README.md).
       the hero wider than its container on very narrow screens - grid
       items default to `min-width:auto`) fixed with an explicit
       `min-width:0` on the hero's grid children.
+- [x] Pre-open-source tidy-up pass, after renaming the GitHub repo from
+      `convoy` to `packbound`. Found and fixed several real leftovers
+      from the rebrand, not just cosmetic ones:
+      - iOS `Info.plist` still had the *old* `convoy://` deep-link scheme
+        registered while Android and all the Dart code
+        (`invite_link.dart`, `deep_link_service.dart`) already use
+        `packbound://` - harmless today since iOS isn't built yet, but
+        would've silently broken invite links the moment it is. Also
+        fixed `CFBundleDisplayName`/`CFBundleName` (still "Convoy
+        App"/"convoy_app" - the actual name iOS would show under the
+        app icon) and the three `NSLocation*UsageDescription` strings
+        (the real permission-dialog text a user sees), which still said
+        "Convoy" - genuine user-facing bugs waiting to ship, not just
+        docs.
+      - `tool/simulate_trip.mjs` (manual multi-device test script) still
+        used the pre-rebrand Android package
+        (`com.example.convoy.convoy_app` instead of `net.packbound.app`)
+        and generated invite links with the old `convoy://` scheme -
+        would have silently failed against the current app build.
+      - `PLATFORM_SETUP.md`'s deep-link section documented the old
+        scheme throughout and referenced an `Info-additions.plist` file
+        that doesn't actually exist in the repo - updated to match
+        current reality (`packbound://`, `website/`, `packbound.net`).
+      - Swapped generic (non-brand) uses of the word "convoy" to "trip"
+        in five real shipped UI strings that were inconsistent with the
+        rest of the app's own established terminology ("Start a new
+        trip", "End trip", etc.): the invite share text, the location-
+        permission explainer, the trip-expiry banner, the "removed from
+        trip" dialog, and the "remove from trip?" confirmation + its
+        tooltip.
+      - Removed a stale "no app icon" TODO below - that shipped a while
+        ago (see the Packbound branding entry above).
+      - Cosmetic-only, zero functional risk: `pubspec.yaml` and
+        `functions/package.json` descriptions still said "convoy
+        groups"/"Convoy cleanup functions".
+      Deliberately did NOT touch the Dart package name itself
+      (`convoy_app`), the `ConvoyGroup`/`ConvoyApp`/`ConvoyStatusList`
+      class names, or the Firebase project ID (`convoy-app-ajd`, which
+      can't be renamed anyway) - see the TODO below for why the former
+      is a separate, bigger piece of work. All 118 tests still pass;
+      analyzer clean (same 4 pre-existing info-level lints as baseline).
 
 ## Needed before this is usable end-to-end
 
@@ -848,14 +889,22 @@ list see [README.md](README.md).
       `packbound` once iOS is actually being configured (blocked on the
       Mac/Xcode step below anyway, so left as-is for now rather than
       guessing at a value with nothing to verify it against).
-- [ ] No app icon / launch screen customization — using Flutter defaults.
-      Worth revisiting now that there's a real brand name, if a logo/icon
-      asset gets made.
+- [ ] The Dart package itself is still named `convoy_app`
+      (`pubspec.yaml`'s `name:` field), which cascades into
+      `import 'package:convoy_app/...'` across dozens of files in `lib/`
+      and `test/`, plus the `ConvoyGroup` model class and
+      `convoy_status_list.dart` widget file. All internal-only - zero
+      effect on the shipped app or anyone using it - but a full rename to
+      `packbound`/`PackboundGroup`/etc. would be a real mechanical
+      refactor touching most of the codebase, not a quick fix. Deliberately
+      not done in the same pass as the smaller rebrand cleanups (deep link
+      scheme, `tool/simulate_trip.mjs`, doc references) - do this as its
+      own separately-tested change, not bundled with anything else.
 
 ## Future feature ideas (not started)
 
 - [ ] In-app group voice call — a button to join a live audio call with
-      everyone currently in the convoy. Push-to-talk (see "Done" above)
+      everyone currently on the trip. Push-to-talk (see "Done" above)
       covers the "quick call-out" case with far less effort by staying
       store-and-forward; this would be the genuinely live/simultaneous
       version, a real capability class jump (live media), not an

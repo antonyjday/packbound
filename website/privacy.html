@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Packbound</title>
+<meta name="description" content="Packbound's privacy policy: what data is collected, how it's used, and exactly when it's deleted.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="wrap">
+    <a class="brand-lockup" href="index.html">
+      <svg viewBox="0 0 300 300" aria-hidden="true"><rect x="0" y="0" width="300" height="300" rx="64" fill="#241E45"/><g transform="translate(12.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#0F7C79"/></g></g><g transform="translate(128.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A67E2D"/></g></g><g transform="translate(54,72)"><g transform="scale(8.0)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#E65156"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A63A3E"/></g></g></svg>
+      <span>packbound</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html#features">Features</a>
+      <a href="index.html#privacy">Privacy</a>
+      <a class="btn btn-ghost-on-light" href="https://github.com/antonyjday/convoy/releases" target="_blank" rel="noopener">Get the beta</a>
+    </div>
+  </div>
+</nav>
+
+<main class="policy">
+  <div class="wrap">
+    <a class="back-link" href="index.html">&larr; Back to packbound.net</a>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: 25 July 2026</p>
+
+    <p style="margin-top:28px;">Packbound is a live location-sharing app for travel groups. This policy
+    explains what information the app collects, why, how long it's kept, and
+    who else ever processes it. If you'd rather read the code than this page,
+    Packbound is open source - see the
+    <a href="https://github.com/antonyjday/convoy" target="_blank" rel="noopener">GitHub repository</a>.</p>
+
+    <h2>1. Information we collect</h2>
+    <p>Packbound is built to collect as little as possible, and only what's
+    needed to run a trip:</p>
+    <ul>
+      <li><strong>A display name.</strong> Chosen by you at sign-in. No email address, phone number, or password is ever requested - sign-in is anonymous.</li>
+      <li><strong>Live location.</strong> While you have sharing turned on during an active trip: latitude/longitude, heading, and speed, sent periodically so your position can be shown on the trip's map.</li>
+      <li><strong>Trip and route data.</strong> The trip name, its members, and - if the owner sets one - a planned route (start point, destination, stops).</li>
+      <li><strong>Optional messages.</strong> Quick preset messages or voice clips you choose to send to your trip group.</li>
+      <li><strong>A device push token.</strong> Used only to deliver notifications relevant to your trip (e.g. a trip-expiry warning or a message from a group member).</li>
+      <li><strong>Basic device signals already needed for the app to work,</strong> such as battery level (to warn your group if it's critically low) and network connectivity (to show a "signal lost" status).</li>
+    </ul>
+    <p>Packbound does not use any advertising or analytics SDK, does not
+    build an advertising profile, and does not sell or share your data with
+    data brokers or advertisers.</p>
+
+    <h2>2. How your information is used</h2>
+    <p>Everything above is used for exactly one purpose: making a trip work
+    for the people on it.</p>
+    <ul>
+      <li>Your live location is visible only to the other members of the specific trip you're currently sharing to - never to other Packbound users, and never used by us for any purpose beyond displaying it in that trip.</li>
+      <li>Your display name is visible only within trips you join.</li>
+      <li>Push tokens are used only to deliver the specific notifications described above.</li>
+    </ul>
+
+    <h2>3. How long data is kept</h2>
+    <p>Trips are intentionally temporary, and so is the data behind them:</p>
+    <ul>
+      <li><strong>Trips can't run forever.</strong> Every trip automatically ends 24 hours after it's created (the owner can extend it), or sooner if the group goes quiet for 10 hours.</li>
+      <li><strong>Location history is deleted immediately when a trip ends</strong> - whether that's the owner ending it manually, it going inactive, or hitting the 24-hour cap. This happens right away, not on a delayed schedule.</li>
+      <li><strong>Trip metadata (its name and who was in it) is kept for 30 days</strong> after the trip ends, in case you want to look back on it, and is then permanently deleted.</li>
+      <li>Your account itself has no separate persistent profile beyond a display name and push token - there's nothing further to retain once you're not in an active trip.</li>
+    </ul>
+
+    <h2>4. Third-party services</h2>
+    <p>Packbound is built on a small number of infrastructure providers that
+    process data strictly to make the app function - none of them are
+    advertising or analytics services:</p>
+    <ul>
+      <li><strong>Firebase (Google Cloud):</strong> anonymous authentication, the live database that syncs trip and location data between members, and push notification delivery.</li>
+      <li><strong>Google Maps Platform:</strong> map display, route calculation, and turn-by-turn directions.</li>
+    </ul>
+    <p>These providers may process data (including approximate location, as
+    part of calculating a route) under their own terms as data processors
+    acting on Packbound's behalf - they are not permitted to use it for
+    their own advertising purposes.</p>
+
+    <h2>5. Your choices</h2>
+    <ul>
+      <li>Location sharing can be paused at any time with a single tap, without leaving the trip.</li>
+      <li>You can leave a trip at any time, which immediately stops your device from sharing further location updates.</li>
+      <li>Because sign-in is anonymous with no recovery details, there's no persistent account to delete separately - simply not joining or starting a new trip means no further data is generated.</li>
+    </ul>
+
+    <h2>6. Children's privacy</h2>
+    <p>Packbound is not directed at children and does not knowingly collect
+    information from children under 13 (or the relevant minimum age in your
+    region).</p>
+
+    <h2>7. Changes to this policy</h2>
+    <p>If this policy changes in a meaningful way, the "last updated" date
+    above will change along with it. Since Packbound is open source, the
+    history of this file is also visible on
+    <a href="https://github.com/antonyjday/convoy" target="_blank" rel="noopener">GitHub</a>.</p>
+
+    <h2>8. Contact</h2>
+    <p>Questions or concerns about this policy or how your data is handled
+    can be raised via
+    <a href="https://github.com/antonyjday/convoy/issues" target="_blank" rel="noopener">GitHub Issues</a>.</p>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand-lockup" href="index.html">
+      <svg viewBox="0 0 300 300" aria-hidden="true"><rect x="0" y="0" width="300" height="300" rx="64" fill="#241E45"/><g transform="translate(12.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#0F7C79"/></g></g><g transform="translate(128.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A67E2D"/></g></g><g transform="translate(54,72)"><g transform="scale(8.0)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#E65156"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A63A3E"/></g></g></svg>
+      <span>packbound</span>
+    </a>
+    <div class="foot-links">
+      <a href="index.html#features">Features</a>
+      <a href="index.html#privacy">Privacy</a>
+      <a href="https://github.com/antonyjday/convoy" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/antonyjday/convoy/issues" target="_blank" rel="noopener">Feedback</a>
+    </div>
+    <div class="copyright">&copy; 2026 Packbound &middot; packbound.net</div>
+  </div>
+</footer>
+
+</body>
+</html>

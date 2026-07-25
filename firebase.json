@@ -6,6 +6,12 @@
   "storage": {
     "rules": "storage.rules"
   },
+  "hosting": {
+    "public": "website",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "cleanUrls": true,
+    "trailingSlash": false
+  },
   "emulators": {
     "firestore": {
       "port": 8080

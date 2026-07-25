@@ -804,6 +804,24 @@ list see [README.md](README.md).
       suited to its own realistic speed range instead of one number
       starving the slower ones. 118 tests now (added 3 for the new
       per-mode getter).
+- [x] Added a marketing website + privacy policy for packbound.net
+      (`website/index.html`, `website/privacy.html`, plain HTML/CSS, no
+      build step), using the actual brand assets (`branding/*.svg`,
+      colors/fonts from `packbound-brand-guide.html` - coral swapped for
+      the app's actual darkened `#E65156` rather than the guide's
+      original `#FF5A5F`). Privacy content is grounded in the real
+      cleanup behavior in `CLEANUP.md`/`functions/src/index.ts` (location
+      wiped immediately on trip end, metadata purged after 30 days,
+      anonymous auth with no email/phone, no analytics/ads SDK anywhere
+      in `pubspec.yaml`) rather than generic marketing claims. Added a
+      `hosting` block to `firebase.json` pointing at `website/`. Verified
+      by rendering both pages headlessly (Edge `--headless --screenshot`)
+      at desktop and narrow widths - caught and fixed two real bugs this
+      way: the phone-mock's ETA text running into the name with no gap,
+      and a latent CSS Grid "blowout" risk (nowrap content could force
+      the hero wider than its container on very narrow screens - grid
+      items default to `min-width:auto`) fixed with an explicit
+      `min-width:0` on the hero's grid children.
 
 ## Needed before this is usable end-to-end
 

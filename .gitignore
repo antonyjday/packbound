@@ -55,3 +55,8 @@ key.properties
 # Firebase CLI's local deploy cache (e.g. hosting file-hash cache) -
 # speeds up repeat `firebase deploy` runs, not meant for version control.
 .firebase/
+
+# Personal local progress tracker for the Play Console submission - just
+# checkboxes for one person to tick through, not project reference
+# material (that's PLAY_STORE_SETUP.md, which is tracked).
+/PLAY_STORE_PROGRESS.md

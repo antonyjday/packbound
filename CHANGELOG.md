@@ -1044,6 +1044,37 @@ list see [README.md](README.md).
       endpoint (inside the new radius, outside the old one) still
       correctly advancing. 135 tests total, all passing; `flutter analyze`
       clean.
+- [x] "Chase mode" - a per-member opt-in that ignores the owner's set
+      route/waypoints entirely and instead personally navigates to
+      wherever the owner currently is (or was last seen), continuously
+      updating as the owner moves. Reuses the same throttled
+      `DirectionsService.route()` pattern as the personal ETA overlay
+      (`_recalculateMyEta`/`_maybeRecalculateMyEta` in `map_screen.dart`,
+      extended to branch on the owner's live position instead of the
+      route's destination/waypoints when Chase mode is on) - no new API
+      call machinery needed. Two entry points funnel through the same
+      `_toggleChaseMode`: a center-screen "Chase mode"/"Just track" button
+      pair (same slot/style as the owner's "Set route"/"Just track") for a
+      non-owner member before a route exists, and a checkbox in the "..."
+      menu once one does, or once the center prompt's been dismissed
+      either way (`_chaseCtaDismissed` - a one-way switch for this screen
+      session, same idea as the owner's route CTA moving into the menu
+      once a route exists). The "skip ahead" FAB hides while chasing
+      (nothing left for it to mean), and the bottom info chips show
+      "Chasing &lt;name&gt;" / "To them: X mi · ETA Y" instead of the usual
+      "Full route"/"You" labels. Off by default; plain local `State` field,
+      not synced anywhere - resets each time the screen is reopened, same
+      as the existing manual "skip ahead" override.
+      Verified live end-to-end on the emulator (not just by reading the
+      code), joining as a plain member (not owner) of a throwaway test
+      group: center button appears before a route exists and disappears
+      after either button is pressed; enabling Chase mode produces a real
+      Directions call and turn-by-turn instructions toward the owner's
+      actual location; the menu toggle works identically once a route
+      exists; "Just track" dismisses without enabling anything (confirmed
+      clean after an earlier false alarm turned out to be a UI
+      coordinate-shift artifact from an unrelated long delay between
+      reading the button's position and tapping it, not a real bug).
 
 ## Needed before this is usable end-to-end
 
@@ -1099,28 +1130,3 @@ list see [README.md](README.md).
       `battery_plus` plugin the warning above already uses) alongside the
       existing heading/speed, plus a place to surface it (roster row?
       marker badge?).
-- [ ] "Chase mode" - a per-member opt-in that ignores the owner's set
-      route/waypoints entirely and instead personally navigates to
-      wherever the owner currently is (or their last known position, if
-      the owner's signal is lost), continuously updating as the owner
-      moves - for a member who'd rather just catch up to the owner
-      directly than follow the planned stops. Off by default. Entry point
-      depends on whether the owner has set a route yet: once a route
-      exists, a toggle in the "..." menu; before one exists, a button in
-      the center of the screen (same style/position as the owner's own
-      "Set route" CTA, stacked above the existing "Just track" button) -
-      that center button disappears the moment a route is set, same as
-      the owner's CTA already does.
-      Realistic path: this reuses most of what's already built for the
-      per-device personal ETA overlay (`_recalculateMyEta`) and the
-      owner's shared-route recalculation (`_maybeRerouteSharedRoute`) -
-      same throttled `DirectionsService.route()` call, just targeting the
-      owner's live location instead of the route's destination/waypoints,
-      recalculated as the owner moves. Main open questions: exact
-      placement/interaction with the existing owner-only Set
-      route/Just track CTA block in `map_screen.dart` (both owner and
-      non-owner center-screen CTAs currently assume they're the only one
-      showing), and whether "chase mode" should persist across app
-      restarts (a synced per-member Firestore field) or reset each
-      session (plain local state, like the existing manual "skip ahead"
-      toggle).

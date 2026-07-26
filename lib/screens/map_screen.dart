@@ -103,6 +103,35 @@ class _MapScreenState extends State<MapScreen> {
   bool _rerouteInFlight = false;
   DateTime? _lastRerouteCheckAt;
 
+  // Chase mode: a member's own opt-in to ignore the route entirely and
+  // personally navigate to the owner's current (or last known) location
+  // instead - never synced anywhere shared, same as the manual "skip
+  // ahead" override below. Redirects the personal ETA overlay
+  // (_myEtaDistanceMeters/_myRoutePolyline/etc.) to target the owner
+  // rather than the route's destination/waypoints - see
+  // _maybeRecalculateMyEta/_recalculateMyEta.
+  bool _chaseModeEnabled = false;
+
+  // Once a non-owner has made a decision about Chase mode - either
+  // enabled it, or explicitly dismissed the center-screen prompt with
+  // "Just track" - the center-screen CTA never shows again for the rest
+  // of this screen session; the "..." menu's toggle takes over as the
+  // one place to control it from then on, same idea as the owner's
+  // route CTA moving into the menu once a route exists.
+  bool _chaseCtaDismissed = false;
+
+  // The group's current owner uid, seed-then-synced off the same
+  // group-doc listener as _route/_tripType above (ownership can change
+  // mid-trip if the owner leaves) - needed to look up the owner's own
+  // LocationPoint for chase mode.
+  String? _ownerId;
+
+  // Most recent locations snapshot, cached here so the "..." menu (built
+  // in the AppBar, outside the StreamBuilder below) can look up this
+  // device's and the owner's positions when Chase mode is toggled from
+  // there, without waiting for the next stream tick.
+  List<LocationPoint> _latestPoints = [];
+
   // Which leg of the route the "step through trip" button last jumped the
   // camera to: -1 means "at the start point", 0..waypoints.length-1 are the
   // stops in order, waypoints.length is the destination, and
@@ -224,6 +253,7 @@ class _MapScreenState extends State<MapScreen> {
     _membersCanInvite = widget.group.membersCanInvite;
     _tripType = widget.group.tripType;
     _routeSkipped = widget.group.routeSkipped;
+    _ownerId = widget.group.ownerId;
     _staleTicker = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) setState(() {});
     });
@@ -308,6 +338,11 @@ class _MapScreenState extends State<MapScreen> {
             final newRouteSkipped = data?['routeSkipped'] ?? false;
             if (newRouteSkipped != _routeSkipped && mounted) {
               setState(() => _routeSkipped = newRouteSkipped);
+            }
+
+            final newOwnerId = data?['ownerId'] as String?;
+            if (newOwnerId != _ownerId && mounted) {
+              setState(() => _ownerId = newOwnerId);
             }
 
             if (status == 'ended' && !_groupEnded) {
@@ -926,19 +961,29 @@ class _MapScreenState extends State<MapScreen> {
     return '${miles.toStringAsFixed(1)} mi · $timeLabel';
   }
 
-  /// Recomputes *this device's* live distance/ETA to the route's
-  /// destination if due - throttled, both at most once every 2 minutes AND
-  /// only once the device has moved 300m+ since the last calc, since an
-  /// unthrottled per-location-tick (every ~3s) recalculation would multiply
-  /// Directions API billing for no real benefit. Scoped to my own progress
-  /// only, not a live ETA for every member shown to everyone, which would
-  /// multiply calls by member count.
+  /// Recomputes *this device's* live distance/ETA if due - throttled, both
+  /// at most once every 2 minutes AND only once the device has moved 300m+
+  /// since the last calc, since an unthrottled per-location-tick (every
+  /// ~3s) recalculation would multiply Directions API billing for no real
+  /// benefit. Scoped to my own progress only, not a live ETA for every
+  /// member shown to everyone, which would multiply calls by member count.
+  /// Targets the route's destination/waypoints normally, or - if Chase
+  /// mode is on - the owner's own current (or last known) location
+  /// instead, ignoring the route entirely (see [_recalculateMyEta]).
   void _maybeRecalculateMyEta(List<LocationPoint> points) {
-    if (_route == null || _etaCalcInFlight) return;
+    if (_etaCalcInFlight) return;
+    if (!_chaseModeEnabled && _route == null) return;
 
     final mine = points.where((p) => p.userId == _authService.uid);
     if (mine.isEmpty) return;
     final myPoint = mine.first;
+
+    LocationPoint? ownerPoint;
+    if (_chaseModeEnabled) {
+      final owner = points.where((p) => p.userId == _ownerId);
+      if (owner.isEmpty) return; // no known owner location to chase yet
+      ownerPoint = owner.first;
+    }
 
     final now = DateTime.now();
     final dueByTime =
@@ -955,35 +1000,57 @@ class _MapScreenState extends State<MapScreen> {
             300;
 
     if (!(dueByTime && dueByDistance)) return;
-    _recalculateMyEta(RouteStop(lat: myPoint.lat, lng: myPoint.lng));
+    _recalculateMyEta(
+      RouteStop(lat: myPoint.lat, lng: myPoint.lng),
+      ownerPoint: ownerPoint,
+    );
   }
 
   /// Does the actual recalculation, bypassing the throttle above - used by
   /// [_maybeRecalculateMyEta] once it decides a recalc is due, and directly
-  /// by the "skip ahead" button so toggling it is reflected immediately
-  /// rather than waiting for the next throttled tick.
-  void _recalculateMyEta(RouteStop myPosition) {
-    if (_route == null || _etaCalcInFlight) return;
+  /// by the "skip ahead" and Chase mode toggles so flipping either is
+  /// reflected immediately rather than waiting for the next throttled
+  /// tick. Pass [ownerPoint] when Chase mode is on (the caller already
+  /// looked it up); leave it null otherwise.
+  void _recalculateMyEta(RouteStop myPosition, {LocationPoint? ownerPoint}) {
+    if (_etaCalcInFlight) return;
+    if (!_chaseModeEnabled && _route == null) return;
 
     _etaCalcInFlight = true;
     _lastEtaCalcAt = DateTime.now();
     _lastEtaCalcPosition = myPosition;
 
-    // The trip's start point counts as this member's first leg too, same as
-    // any other waypoint - a member who hasn't reached it yet should be
-    // routed there before the rest of the planned stops/destination, not
-    // straight past it to whatever's next on the plan (unless manually
-    // skipped ahead - see remainingLegs in utils/route_progress.dart).
-    final legsToGo = remainingLegs(
-      myPosition,
-      _route!,
-      manualSkipCount: _manualRouteSkipCount,
-    );
+    final RouteStop destination;
+    final List<RouteStop> legsToGo;
+    if (_chaseModeEnabled) {
+      if (ownerPoint == null) {
+        // No known owner location to target - bail without touching the
+        // in-flight flag's caller-visible state any further than resetting it.
+        _etaCalcInFlight = false;
+        return;
+      }
+      // Chase mode ignores the route/waypoints entirely - a direct route
+      // to wherever the owner currently is (or was last seen).
+      destination = RouteStop(lat: ownerPoint.lat, lng: ownerPoint.lng);
+      legsToGo = const [];
+    } else {
+      // The trip's start point counts as this member's first leg too, same as
+      // any other waypoint - a member who hasn't reached it yet should be
+      // routed there before the rest of the planned stops/destination, not
+      // straight past it to whatever's next on the plan (unless manually
+      // skipped ahead - see remainingLegs in utils/route_progress.dart).
+      destination = _route!.destination;
+      legsToGo = remainingLegs(
+        myPosition,
+        _route!,
+        manualSkipCount: _manualRouteSkipCount,
+      );
+    }
 
     _directionsService
         .route(
           origin: myPosition,
-          destination: _route!.destination,
+          destination: destination,
           waypoints: legsToGo,
           mode: _tripType.directionsMode,
         )
@@ -1094,6 +1161,54 @@ class _MapScreenState extends State<MapScreen> {
     return _manualRouteSkipCount == 0
         ? 'Skip start point'
         : 'Skip stop $_manualRouteSkipCount';
+  }
+
+  /// Flips Chase mode on/off - a member's own opt-in to ignore the route
+  /// entirely and personally navigate to the owner's current (or last
+  /// known) location instead. Reachable from the "..." menu (once a route
+  /// exists) or the center-screen button (before one does) - both funnel
+  /// through here using [_latestPoints], since neither call site is
+  /// inside the StreamBuilder that would otherwise hand `points` directly.
+  /// Clears the personal ETA overlay first so nothing stale from the old
+  /// target briefly shows, then forces an immediate recalculation against
+  /// the new one rather than waiting for the next throttled tick.
+  void _toggleChaseMode() {
+    setState(() {
+      _chaseModeEnabled = !_chaseModeEnabled;
+      // Turning it on counts as a decision - the center CTA won't come
+      // back if it's later turned off again from the menu. Doesn't
+      // matter if this was already true (e.g. toggling from the menu
+      // after dismissing/enabling once already).
+      if (_chaseModeEnabled) _chaseCtaDismissed = true;
+      _myEtaDistanceMeters = null;
+      _myEtaDuration = null;
+      _myEtaRemainingStops = 0;
+      _myRoutePolyline = null;
+      _myRouteSteps = [];
+      _lastEtaCalcAt = null;
+      _lastEtaCalcPosition = null;
+    });
+
+    final mine = _latestPoints.where((p) => p.userId == _authService.uid);
+    if (mine.isEmpty) return;
+    final myPosition = RouteStop(lat: mine.first.lat, lng: mine.first.lng);
+
+    if (_chaseModeEnabled) {
+      final owner = _latestPoints.where((p) => p.userId == _ownerId);
+      if (owner.isNotEmpty) {
+        _recalculateMyEta(myPosition, ownerPoint: owner.first);
+      }
+    } else if (_route != null) {
+      _recalculateMyEta(myPosition);
+    }
+  }
+
+  /// Dismisses the center-screen Chase mode prompt without enabling it -
+  /// "I don't want to set this up, just show me the map" - same purpose
+  /// as the owner's "Just track" next to "Set route". Chase mode stays
+  /// off; the toggle remains reachable from the "..." menu afterward.
+  void _dismissChaseCta() {
+    setState(() => _chaseCtaDismissed = true);
   }
 
   Set<Marker> _buildRouteMarkers(RoutePlan route) {
@@ -1871,6 +1986,7 @@ class _MapScreenState extends State<MapScreen> {
               if (value == 'toggle_invite') _toggleMembersCanInvite();
               if (value == 'trip_type') _pickTripType();
               if (value == 'toggle_theme') ThemeService.instance.toggle();
+              if (value == 'toggle_chase') _toggleChaseMode();
               if (value == 'leave') _confirmLeaveTrip();
             },
             itemBuilder: (context) => [
@@ -1923,6 +2039,28 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
               ],
+              // Non-owner only - the owner already navigates by the route
+              // they set, chasing themselves wouldn't mean anything. Only
+              // surfaced here once a route exists, or once this member has
+              // made a decision about the center-screen CTA (enabled Chase
+              // mode, or dismissed it with "Just track") - before either
+              // of those, the same toggle is the center-screen button
+              // instead (see the Chase-mode CTA below).
+              if (!_isOwner &&
+                  !_groupEnded &&
+                  (_route != null || _chaseCtaDismissed))
+                PopupMenuItem(
+                  value: 'toggle_chase',
+                  child: ListTile(
+                    leading: Icon(
+                      _chaseModeEnabled
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank,
+                    ),
+                    title: const Text('Chase mode'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
               PopupMenuItem(
                 value: 'toggle_theme',
                 child: ListTile(
@@ -1983,12 +2121,17 @@ class _MapScreenState extends State<MapScreen> {
         stream: _locationService.groupLocationsStream(widget.group.id),
         builder: (context, snapshot) {
           final points = snapshot.data ?? [];
+          _latestPoints = points;
           _checkForStatusTransitions(points);
           _maybeAutoFit(points);
           _maybeFollowMe(points);
           _maybeRecalculateMyEta(points);
           _maybeRerouteSharedRoute(points);
           final route = _route;
+          final ownerPointsForChase = points.where((p) => p.userId == _ownerId);
+          final chaseTargetName = ownerPointsForChase.isNotEmpty
+              ? ownerPointsForChase.first.displayName
+              : 'the owner';
           // Includes this device's own uid even if it isn't in `points` yet
           // (e.g. not sharing to Firestore, but still has a live GPS fix for
           // the "my route" polyline below) - otherwise that lookup would
@@ -2353,7 +2496,10 @@ class _MapScreenState extends State<MapScreen> {
                     // again restores the full planned route - see
                     // _toggleSkipRouteLeg. Unlike the step button above, this
                     // changes the actual route/ETA, not just the camera.
-                    if (route != null)
+                    // Hidden during Chase mode - that already ignores the
+                    // route/waypoints entirely, so "skip ahead" has nothing
+                    // left to mean.
+                    if (route != null && !_chaseModeEnabled)
                       Positioned(
                         top: railTop(4),
                         right: railRight(4),
@@ -2386,7 +2532,12 @@ class _MapScreenState extends State<MapScreen> {
                     // controls sit differently there. Both also add the
                     // system gesture/nav bar inset, otherwise it sits under
                     // the OS bar on 3-button-nav devices.
-                    if (route != null)
+                    // Chase mode has no shared `route` to anchor these chips
+                    // on once one hasn't been set (or was ignored) - shown
+                    // instead whenever there's a personal ETA to display at
+                    // all, chase-mode or not.
+                    if (route != null ||
+                        (_chaseModeEnabled && _myEtaDuration != null))
                       Positioned(
                         bottom:
                             (MediaQuery.of(context).orientation ==
@@ -2406,22 +2557,29 @@ class _MapScreenState extends State<MapScreen> {
                           spacing: 2,
                           runSpacing: 2,
                           children: [
-                            _RouteMarkerLegend(
-                              hasStops: route.waypoints.isNotEmpty,
-                            ),
-                            _RouteInfoChip(
-                              icon: Icons.alt_route,
-                              label:
-                                  'Full route: '
-                                  '${_formatDistanceDuration(route.distanceMeters, route.durationSeconds)}'
-                                  '${_myEtaRemainingStops > 0 ? ' ($_myEtaRemainingStops stop${_myEtaRemainingStops == 1 ? '' : 's'} left)' : ''}',
-                            ),
+                            if (route != null)
+                              _RouteMarkerLegend(
+                                hasStops: route.waypoints.isNotEmpty,
+                              ),
+                            if (route != null)
+                              _RouteInfoChip(
+                                icon: Icons.alt_route,
+                                label:
+                                    'Full route: '
+                                    '${_formatDistanceDuration(route.distanceMeters, route.durationSeconds)}'
+                                    '${_myEtaRemainingStops > 0 && !_chaseModeEnabled ? ' ($_myEtaRemainingStops stop${_myEtaRemainingStops == 1 ? '' : 's'} left)' : ''}',
+                              ),
+                            if (_chaseModeEnabled)
+                              _RouteInfoChip(
+                                icon: Icons.follow_the_signs,
+                                label: 'Chasing $chaseTargetName',
+                              ),
                             if (_myEtaDuration != null &&
                                 _myEtaDistanceMeters != null)
                               _RouteInfoChip(
                                 icon: Icons.navigation,
                                 label:
-                                    'You: '
+                                    '${_chaseModeEnabled ? 'To them' : 'You'}: '
                                     '${_formatDistanceDuration(_myEtaDistanceMeters!.round(), _myEtaDuration!.inSeconds)}'
                                     ' · ETA '
                                     '${_formatClockTime(DateTime.now().add(_myEtaDuration!))}',
@@ -2474,6 +2632,75 @@ class _MapScreenState extends State<MapScreen> {
                             // if they change their mind later.
                             TextButton(
                               onPressed: _skipSettingRoute,
+                              style: TextButton.styleFrom(
+                                backgroundColor: BrandColors.amber,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                elevation: 3,
+                              ),
+                              child: const Text('Just track'),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // Same slot/style as the owner's "Set route"/"Just
+                    // track" CTA above, but for everyone else: before the
+                    // owner has set a route, a member can opt into Chase
+                    // mode - personally navigating straight to the owner
+                    // instead - right from here rather than digging into
+                    // the "..." menu. Disappears the moment either button
+                    // is pressed (enabling Chase mode, or dismissing with
+                    // "Just track") or a route gets set - _chaseCtaDismissed
+                    // means it never comes back after that; the same
+                    // toggle moves into the menu instead - see the
+                    // 'toggle_chase' PopupMenuItem.
+                    if (!_isOwner &&
+                        !_groupEnded &&
+                        route == null &&
+                        !_chaseCtaDismissed)
+                      Align(
+                        alignment: const Alignment(0, 0.35),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: _toggleChaseMode,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: BrandColors.coral,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 28,
+                                  vertical: 18,
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(32),
+                                ),
+                                elevation: 6,
+                              ),
+                              icon: const Icon(Icons.follow_the_signs, size: 26),
+                              label: const Text('Chase mode'),
+                            ),
+                            const SizedBox(height: 10),
+                            // Dismisses without enabling Chase mode - "just
+                            // show me the map" - same purpose as the
+                            // owner's "Just track" next to "Set route".
+                            TextButton(
+                              onPressed: _dismissChaseCta,
                               style: TextButton.styleFrom(
                                 backgroundColor: BrandColors.amber,
                                 foregroundColor: Colors.white,

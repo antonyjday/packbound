@@ -92,6 +92,17 @@ class _MapScreenState extends State<MapScreen> {
   DateTime? _lastEtaCalcAt;
   RouteStop? _lastEtaCalcPosition;
 
+  // Owner-only: keeps the group's *shared* route current with where the
+  // owner actually is - unlike the personal ETA overlay above, a
+  // successful recalculation here overwrites the group doc's `route`
+  // field itself (see _maybeRerouteSharedRoute), so every member's map
+  // reflects it, not just the owner's. `_lastRerouteCheckAt` only throttles
+  // the "has the owner detoured off the route entirely" distance check -
+  // the "has the owner reached the next waypoint" check is cheap local
+  // geometry and runs every tick regardless.
+  bool _rerouteInFlight = false;
+  DateTime? _lastRerouteCheckAt;
+
   // Which leg of the route the "step through trip" button last jumped the
   // camera to: -1 means "at the start point", 0..waypoints.length-1 are the
   // stops in order, waypoints.length is the destination, and
@@ -991,6 +1002,69 @@ class _MapScreenState extends State<MapScreen> {
           // error toast for a background recalculation failure.
         })
         .whenComplete(() => _etaCalcInFlight = false);
+  }
+
+  /// Owner-only: keeps the group's *shared* route (route.waypoints/origin/
+  /// polyline/distance/duration, as stored on the group doc and rendered
+  /// identically on every member's map) current with where the owner
+  /// actually is - unlike [_recalculateMyEta] above, which only ever
+  /// updates this device's own personal ETA overlay. Two independent
+  /// triggers, either one requests a fresh route from Directions using the
+  /// owner's current position as the new origin and whichever waypoints
+  /// remain, then writes it back via GroupService.setRoute:
+  ///   - the owner has come within [ownerWaypointClearRadiusMeters] of the
+  ///     next waypoint ([remainingWaypoints] reports fewer than
+  ///     route.waypoints) - cheap local geometry, checked every tick, no
+  ///     throttle needed since a given waypoint can only trigger this once
+  ///     (it's gone from the route afterward).
+  ///   - the owner has drifted more than [routeDeviationThresholdMeters]
+  ///     from the route's own polyline - a real detour, not just GPS
+  ///     noise. Throttled to at most once every 2 minutes (same interval
+  ///     as the personal ETA recalc) since, unlike the waypoint check,
+  ///     a genuine multi-minute detour would otherwise re-trigger on every
+  ///     ~3s location tick for as long as it lasts.
+  void _maybeRerouteSharedRoute(List<LocationPoint> points) {
+    if (!_isOwner || _rerouteInFlight) return;
+    final route = _route;
+    if (route == null) return;
+
+    final mine = points.where((p) => p.userId == _authService.uid);
+    if (mine.isEmpty) return;
+    final myPosition = RouteStop(lat: mine.first.lat, lng: mine.first.lng);
+
+    final remaining = remainingWaypoints(myPosition, route.waypoints);
+    final passedAWaypoint = remaining.length < route.waypoints.length;
+
+    var isDetour = false;
+    final now = DateTime.now();
+    final deviationCheckDue =
+        _lastRerouteCheckAt == null ||
+        now.difference(_lastRerouteCheckAt!) >= const Duration(minutes: 2);
+    if (deviationCheckDue) {
+      _lastRerouteCheckAt = now;
+      isDetour =
+          distanceFromRouteMeters(myPosition, decodePolyline(route.polyline)) >
+          routeDeviationThresholdMeters;
+    }
+
+    if (!passedAWaypoint && !isDetour) return;
+
+    _rerouteInFlight = true;
+    _directionsService
+        .route(
+          origin: myPosition,
+          destination: route.destination,
+          waypoints: remaining,
+          mode: _tripType.directionsMode,
+        )
+        .then((result) => _groupService.setRoute(widget.group.id, result))
+        .catchError((_) {
+          // Best-effort background recalculation - if it fails (e.g. no
+          // signal mid-detour), the old shared route just stays in place
+          // until the next tick tries again, same as the personal ETA
+          // recalc above.
+        })
+        .whenComplete(() => _rerouteInFlight = false);
   }
 
   /// Advances the manual "skip ahead" override by one leg (start point,
@@ -1913,6 +1987,7 @@ class _MapScreenState extends State<MapScreen> {
           _maybeAutoFit(points);
           _maybeFollowMe(points);
           _maybeRecalculateMyEta(points);
+          _maybeRerouteSharedRoute(points);
           final route = _route;
           // Includes this device's own uid even if it isn't in `points` yet
           // (e.g. not sharing to Firestore, but still has a live GPS fix for
@@ -2111,6 +2186,14 @@ class _MapScreenState extends State<MapScreen> {
                       },
                       onCameraIdle: () => _programmaticCameraMove = false,
                       myLocationEnabled: true,
+                      // Without this, the native zoom +/- buttons sit flush
+                      // with the bottom edge and end up under the OS
+                      // gesture/nav bar on 3-button-nav devices - push them
+                      // up by however much system UI the OS is actually
+                      // reserving there.
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).padding.bottom,
+                      ),
                     ),
 
                     // Top-left, in-line with the roster/refit/recenter/step/skip
@@ -2300,14 +2383,17 @@ class _MapScreenState extends State<MapScreen> {
                     // stack sits lower (bottom: 4 instead of 24) so its bottom
                     // edge lines up with the Google Maps zoom-out button in the
                     // opposite corner - landscape keeps 24 since the zoom
-                    // controls sit differently there.
+                    // controls sit differently there. Both also add the
+                    // system gesture/nav bar inset, otherwise it sits under
+                    // the OS bar on 3-button-nav devices.
                     if (route != null)
                       Positioned(
                         bottom:
-                            MediaQuery.of(context).orientation ==
-                                Orientation.landscape
-                            ? 24
-                            : 4,
+                            (MediaQuery.of(context).orientation ==
+                                    Orientation.landscape
+                                ? 24
+                                : 4) +
+                            MediaQuery.of(context).padding.bottom,
                         left: 24,
                         right: 24,
                         child: Wrap(

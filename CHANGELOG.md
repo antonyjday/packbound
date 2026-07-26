@@ -986,6 +986,45 @@ list see [README.md](README.md).
       code, and correctly auto-joins the actual group for a real one.
       iOS still only has the custom scheme (needs Team ID/bundle ID from
       the still-pending Mac/Xcode setup first - see PLATFORM_SETUP.md).
+- [x] Real-world testing turned up four issues, all fixed:
+      1) the shared route never recalculated if the owner detoured from it;
+      2) waypoints stayed on the shared route forever, even long after the
+      owner had passed them; 3) the owner manually or physically skipping
+      ahead only ever updated their own device's personal ETA overlay, never
+      the group's shared route everyone else sees; 4) the OS gesture/nav bar
+      overlapped the map's zoom controls and the bottom two info chips.
+      Root cause of 1-3 together: the shared `route` (origin/waypoints/
+      polyline/distance/duration on the group doc, rendered identically on
+      every member's map) was write-once at set-route time - only each
+      viewer's own separate, *personal* ETA overlay
+      (`_recalculateMyEta`/`_myRoutePolyline`) ever recalculated live, and
+      that was never written back anywhere shared. Fixed with a new
+      owner-only `_maybeRerouteSharedRoute` (`map_screen.dart`), run
+      alongside the existing personal recalculation on every location tick:
+      requests a fresh route from Directions (origin = the owner's current
+      position, destination unchanged, waypoints = whichever remain) and
+      overwrites the shared route via the existing `GroupService.setRoute`
+      whenever either (a) the owner has come within 100m of the next
+      waypoint (new `remainingWaypoints` in `route_progress.dart` - waypoint
+      dropped from the route for everyone, origin becomes wherever the
+      owner currently is, "start point" included per the same logic) or (b)
+      the owner has drifted more than 150m from the route's own polyline (new
+      `distanceFromRouteMeters`), throttled to at most once every 2 minutes
+      like the existing personal recalculation, so a long genuine detour
+      doesn't hammer the Directions API on every ~3s location tick. For (4),
+      added `MediaQuery.of(context).padding.bottom` to both the `GoogleMap`
+      widget's `padding` (pushes the native zoom buttons up) and the bottom
+      info chip stack's offset. 8 new unit tests for the two new
+      `route_progress.dart` functions (134 total, all passing);
+      `flutter analyze` clean. Verified live end-to-end on the emulator, not
+      just by reading the code: geo-fixed the owner to a route's waypoint's
+      exact coordinates and confirmed via direct Firestore inspection that
+      `route.waypoints` emptied, `route.origin` became the owner's live
+      position, and `distanceMeters`/`durationSeconds` dropped to match a
+      genuinely shorter recalculated route - all under a fresh `setAt`,
+      confirming a real Directions call and a real shared write, not a
+      no-op. Also confirmed the zoom controls now sit with a clear gap
+      above the OS nav bar rather than flush against it.
 
 ## Needed before this is usable end-to-end
 

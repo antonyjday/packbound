@@ -3,8 +3,8 @@ import 'package:convoy_app/utils/invite_link.dart';
 
 void main() {
   group('buildInviteLink', () {
-    test('wraps the code in the packbound:// scheme', () {
-      expect(buildInviteLink('AB2XQ9'), 'packbound://join/AB2XQ9');
+    test('builds the packbound.net universal link', () {
+      expect(buildInviteLink('AB2XQ9'), 'https://packbound.net/join/AB2XQ9');
     });
   });
 
@@ -17,12 +17,20 @@ void main() {
       expect(extractInviteCode('ab2xq9'), 'AB2XQ9');
     });
 
-    test('extracts the code from our own deep link', () {
+    test('extracts the code from the legacy custom-scheme deep link', () {
       expect(extractInviteCode('packbound://join/AB2XQ9'), 'AB2XQ9');
     });
 
     test('handles a trailing slash some share sheets add', () {
       expect(extractInviteCode('packbound://join/AB2XQ9/'), 'AB2XQ9');
+    });
+
+    test('extracts the code from our own universal link', () {
+      expect(extractInviteCode('https://packbound.net/join/AB2XQ9'), 'AB2XQ9');
+    });
+
+    test('extracts the code from our universal link with a trailing slash', () {
+      expect(extractInviteCode('https://packbound.net/join/AB2XQ9/'), 'AB2XQ9');
     });
 
     test('extracts the code even if "join" is a path segment rather than the host',

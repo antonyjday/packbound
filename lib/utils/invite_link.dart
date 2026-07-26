@@ -1,15 +1,19 @@
-/// Builds the shareable deep link for a group invite. Uses a custom URL
-/// scheme (packbound://join/CODE) rather than a universal/app link, since
-/// those require hosting verification files (apple-app-site-association,
-/// assetlinks.json) on a real domain you control - see PLATFORM_SETUP.md
-/// for upgrading to that later.
-String buildInviteLink(String inviteCode) => 'packbound://join/$inviteCode';
+/// Builds the shareable deep link for a group invite. Uses the
+/// https://packbound.net/join/CODE Android App Link (verified via
+/// website/.well-known/assetlinks.json) rather than the packbound://
+/// custom scheme, so the link still does something useful - opens a
+/// normal webpage with a download link and the code - for whoever it's
+/// shared with who doesn't have the app installed yet. The custom scheme
+/// still exists and still works (see AndroidManifest.xml) for anything
+/// that already builds/parses a packbound:// link.
+String buildInviteLink(String inviteCode) => 'https://packbound.net/join/$inviteCode';
 
 /// Parses an invite code out of arbitrary scanned/tapped/pasted input.
 /// Handles:
 ///   - a raw code someone typed or wrote by hand: "AB2XQ9"
-///   - our own deep link: "packbound://join/AB2XQ9"
-///   - the same link with a trailing slash or query params, which some
+///   - the universal link: "https://packbound.net/join/AB2XQ9"
+///   - the legacy custom-scheme deep link: "packbound://join/AB2XQ9"
+///   - any of the above with a trailing slash or query params, which some
 ///     scanners/share sheets normalize to
 String? extractInviteCode(String raw) {
   final trimmed = raw.trim();

@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "net.packbound.app",
+      "sha256_cert_fingerprints": [
+        "2E:F3:AC:89:CF:5B:B6:E1:7A:98:A6:6C:C0:D9:71:56:FC:61:F4:85:09:F4:C6:38:96:3B:EB:1F:B4:8F:90:D2",
+        "11:CF:9F:0E:A4:6F:15:94:15:A2:50:80:B5:EB:A0:5C:BB:20:31:7A:DD:CA:92:E4:CC:26:CA:60:E7:42:2A:DE"
+      ]
+    }
+  }
+]

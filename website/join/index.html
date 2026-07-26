@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join a trip — Packbound</title>
+<meta name="description" content="Join a travel group on Packbound with an invite code.">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .join-code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 40px;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px 28px;
+    text-align: center;
+    margin: 28px 0;
+  }
+  .join-steps {
+    counter-reset: step;
+    padding: 0;
+    margin: 28px 0;
+    list-style: none;
+  }
+  .join-steps li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 40px;
+    margin-bottom: 18px;
+    color: var(--ink-soft);
+  }
+  .join-steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--coral);
+    color: #fff;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="wrap">
+    <a class="brand-lockup" href="../index.html">
+      <svg viewBox="0 0 300 300" aria-hidden="true"><rect x="0" y="0" width="300" height="300" rx="64" fill="#241E45"/><g transform="translate(12.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#0F7C79"/></g></g><g transform="translate(128.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A67E2D"/></g></g><g transform="translate(54,72)"><g transform="scale(8.0)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#E65156"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A63A3E"/></g></g></svg>
+      <span>packbound</span>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html#features">Features</a>
+      <a href="../index.html#privacy">Privacy</a>
+    </div>
+  </div>
+</nav>
+
+<main class="policy">
+  <div class="wrap">
+    <a class="back-link" href="../index.html">&larr; Back to packbound.net</a>
+    <h1>You're invited to a trip</h1>
+    <p class="updated" id="opening-status">Opening Packbound&hellip;</p>
+
+    <p style="margin-top:28px;">Someone shared this trip with you on Packbound - live location
+    sharing for travel groups, with no account needed.</p>
+
+    <p class="join-code" id="invite-code">------</p>
+
+    <ol class="join-steps">
+      <li id="step-open">If Packbound is already installed, tap below to open it and join
+      automatically.</li>
+      <li>If you don't have it yet, download it, then open the app and enter the
+      invite code above.</li>
+    </ol>
+
+    <div class="cta-row" style="margin-top:8px;">
+      <a class="btn btn-primary" id="open-app-btn" href="#">Open in Packbound</a>
+      <a class="btn btn-ghost-on-light" href="https://github.com/antonyjday/packbound/releases/latest/download/app-release.apk">Download for Android</a>
+    </div>
+  </div>
+</main>
+
+<script>
+  (function () {
+    var segments = location.pathname.split('/').filter(Boolean);
+    var code = (segments[segments.length - 1] || '').toUpperCase();
+    var isJoinSegment = segments[segments.length - 2] === 'join' || segments.length === 1;
+    if (!isJoinSegment || !code || code === 'JOIN') code = '';
+
+    document.getElementById('invite-code').textContent = code || 'No code found';
+    var openBtn = document.getElementById('open-app-btn');
+    if (code) {
+      openBtn.href = 'packbound://join/' + code;
+    } else {
+      openBtn.style.display = 'none';
+      document.getElementById('step-open').style.display = 'none';
+    }
+
+    // If an app-link on this domain is verified on the visitor's device,
+    // Android/iOS open the app directly and this page never actually
+    // renders - reaching this script at all means either the app isn't
+    // installed or verification hasn't happened, so there's nothing
+    // useful to auto-redirect to. Just reflect that in the status line.
+    document.getElementById('opening-status').textContent = code
+      ? 'Invite code ' + code
+      : '';
+  })();
+</script>
+
+</body>
+</html>

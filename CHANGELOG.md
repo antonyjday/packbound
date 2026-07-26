@@ -961,6 +961,31 @@ list see [README.md](README.md).
       (124/124); manually verified on the emulator end-to-end (play ->
       auto-revert on completion -> replay) using a real uploaded voice
       clip, not just the dialog's appearance.
+- [x] Upgraded the Android invite link from the `packbound://join/CODE`
+      custom scheme to a verified `https://packbound.net/join/CODE` App
+      Link, so invites degrade gracefully (a real webpage with a download
+      link and the code) for anyone who taps one without the app
+      installed - `buildInviteLink()`/`extractInviteCode()` in
+      `lib/utils/invite_link.dart` now build/parse the https form (the
+      legacy custom scheme is still parsed too, so nothing that already
+      has an old link breaks). Added a second `autoVerify="true"`
+      intent-filter to `AndroidManifest.xml`, hosted
+      `website/.well-known/assetlinks.json` (both the release and debug
+      signing certs' SHA-256 fingerprints, so it verifies against a
+      locally debug-built APK too, not just a release one), and a
+      `website/join/index.html` fallback page (Firebase Hosting rewrite:
+      `/join/**` -> that page) showing the invite code plus a download
+      link. Had to explicitly un-ignore `.well-known/` in `firebase.json`
+      - its default `**/.*` ignore rule would otherwise have silently
+      excluded the verification file from every deploy. Verified for
+      real, not just by reading the manifest: `adb shell pm get-app-links`
+      shows `packbound.net: verified`, and firing the link with no
+      package specified opens the app directly with no browser/chooser,
+      both on a fresh cold-booted emulator and with the app already
+      running - correctly pre-fills the invite code field for a bogus
+      code, and correctly auto-joins the actual group for a real one.
+      iOS still only has the custom scheme (needs Team ID/bundle ID from
+      the still-pending Mac/Xcode setup first - see PLATFORM_SETUP.md).
 
 ## Needed before this is usable end-to-end
 
@@ -971,13 +996,10 @@ list see [README.md](README.md).
 
 ## Known gaps / follow-ups called out in the code
 
-- [ ] Custom URL scheme (`packbound://`) only works if the app is already
-      installed. Upgrading to a universal/app link
-      (`https://packbound.net/join/CODE`) would let invites degrade
-      gracefully for people who don't have the app yet - the domain is now
-      registered, but this still needs hosting
-      `.well-known/apple-app-site-association` / `assetlinks.json` on it.
-      See PLATFORM_SETUP.md for details.
+- [ ] iOS still has no universal link (`apple-app-site-association`) -
+      blocked on the Mac/Xcode setup below for a real Team ID/bundle ID;
+      Android's half of this is done (see "Done" above). See
+      PLATFORM_SETUP.md for the exact remaining steps.
 - [ ] iOS bundle ID is still the Flutter-generated placeholder
       (`com.example.convoy.convoyApp`) - rename to something under
       `packbound` once iOS is actually being configured (blocked on the

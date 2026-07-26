@@ -59,6 +59,21 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="packbound" android:host="join" />
             </intent-filter>
+
+            <!-- Handles https://packbound.net/join/CODE as a verified Android
+                 App Link - degrades gracefully to website/join/ for anyone
+                 without the app installed, unlike the custom scheme above.
+                 Verification checks website/.well-known/assetlinks.json
+                 against this APK's signing cert. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="packbound.net"
+                    android:pathPrefix="/join" />
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

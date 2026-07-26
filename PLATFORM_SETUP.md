@@ -63,42 +63,42 @@ a specific UX):
 - Both: verify Firestore `groups/{id}/locations/{uid}.updatedAt` keeps
   advancing while the app is backgrounded, not just in foreground.
 
-## Invite deep links (`packbound://join/CODE`)
+## Invite deep links (`https://packbound.net/join/CODE`)
 
-Both manifests are already wired up (Android intent-filter, iOS
-`CFBundleURLTypes` in `ios/Runner/Info.plist`) to open the app when
-someone taps a `packbound://join/CODE` link — from the share sheet in
-`InviteScreen`, a text message, etc. The `DeepLinkService` in
-`lib/services` picks it up and `HomeScreen` auto-joins once the user is
-signed in.
+The shared invite link is now the `https://packbound.net/join/CODE`
+universal/app link, built by `buildInviteLink()` in
+`lib/utils/invite_link.dart` and used for both the share-sheet text and
+the QR code in `InviteScreen`. The legacy `packbound://join/CODE` custom
+scheme still exists in the Android manifest and is still parsed by
+`extractInviteCode()` (and `tool/simulate_trip.mjs` still uses it for
+scripted testing, since specifying the target package there bypasses
+verification anyway) - nothing that already generated or hard-coded that
+link needs to change.
 
-One thing to fix before shipping for iOS: `Info.plist`'s
-`CFBundleURLName` is still `com.example.convoy.convoyApp` (the
-pre-rebrand bundle ID) — update it to match whatever's actually in your
-Xcode project's Signing & Capabilities tab once iOS gets its own
-Packbound-branded bundle identifier.
+**Android: done.** `android/app/src/main/AndroidManifest.xml` has a
+second `autoVerify="true"` intent-filter for
+`https://packbound.net/join/*`, verified against
+`website/.well-known/assetlinks.json` (lists both the release and debug
+signing certs' SHA-256 fingerprints, so verification works on both a
+real installed build and a locally debug-built one). `firebase.json`
+explicitly un-ignores `.well-known/` (the hosting config's default
+`**/.*` ignore rule would otherwise silently exclude it) and rewrites
+`/join/**` to `website/join/index.html`, a fallback page that shows the
+invite code and a download link for anyone who taps the link without
+the app installed, or before Android's verification has completed.
 
-**Limitation of a custom scheme (`packbound://`) vs. a universal/app link
-(`https://packbound.net/join/CODE`):** a custom scheme only works if the
-app is already installed — tapping it with the app not installed just
-fails silently (iOS) or offers nothing useful (Android), and it won't
-unfurl as a nice preview in a text message. A universal/app link degrades
-gracefully to a normal webpage (e.g. "Get the app" + a way to still see
-the invite) and looks like a real link everywhere. Upgrading requires:
+**iOS: still not done** - blocked on the same Mac/Xcode setup as the
+rest of iOS (see above). Needs, once that's underway:
+- Hosting `.well-known/apple-app-site-association` at packbound.net,
+  referencing the real Team ID + bundle ID (placeholder
+  `com.example.convoy.convoyApp` right now - see the iOS bundle ID gap
+  in CHANGELOG.md).
+- Adding the `applinks:packbound.net` associated domain in Xcode's
+  Signing & Capabilities.
+- `Info.plist`'s `CFBundleURLName` still needs updating to match
+  whatever real bundle ID iOS ends up with, same as already noted here
+  before this section was updated.
 
-- A real domain you control (packbound.net already exists - see
-  `website/`).
-- Hosting `.well-known/apple-app-site-association` (iOS) and
-  `.well-known/assetlinks.json` (Android) at that domain, referencing
-  your app's Team ID/bundle ID and SHA-256 signing cert fingerprint.
-- Adding the `applinks:packbound.net` associated domain (iOS,
-  Signing & Capabilities) and an `autoVerify="true"` intent-filter with
-  `android:host="packbound.net"` (Android manifest) alongside the
-  existing custom-scheme one.
-
-Not required to ship the current version — the custom scheme works fine
-for "tap link in a message, app opens, code pre-filled" as long as
-everyone in the group already has the app installed, which is the
-realistic case for a travel group. Worth revisiting if you want the
-invite link to also work as a soft app-install prompt for someone who
-doesn't have Packbound yet.
+Until then, iOS keeps using the `packbound://` custom scheme only
+(works fine as long as the recipient already has the app installed,
+same limitation as Android had before this change).

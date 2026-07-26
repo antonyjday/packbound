@@ -1,8 +1,9 @@
 # Packbound
 
 Real-time location sharing for travel groups. Create a trip, invite people by
-code, QR, or a `packbound://join/CODE` deep link, and see everyone's live
-position on a shared map for the duration of the trip.
+code, QR, or a `https://packbound.net/join/CODE` link (opens the app directly
+if installed, otherwise a normal webpage), and see everyone's live position on
+a shared map for the duration of the trip.
 
 Marketing site + privacy policy for packbound.net live in
 [website/](website/) — see that folder for deploying it.

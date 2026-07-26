@@ -3,8 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:app_links/app_links.dart';
 import '../utils/invite_link.dart';
 
-/// Listens for `packbound://join/CODE` links, whether the app was launched
-/// cold by tapping the link or was already running in the background.
+/// Listens for `https://packbound.net/join/CODE` universal links (and the
+/// legacy `packbound://join/CODE` custom scheme), whether the app was
+/// launched cold by tapping the link or was already running in the
+/// background.
 ///
 /// Deliberately simple rather than routing directly: it just exposes a
 /// `ValueNotifier` with the pending code. Whatever screen is in a

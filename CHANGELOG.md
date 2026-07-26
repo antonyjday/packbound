@@ -1025,6 +1025,25 @@ list see [README.md](README.md).
       confirming a real Directions call and a real shared write, not a
       no-op. Also confirmed the zoom controls now sit with a clear gap
       above the OS nav bar rather than flush against it.
+- [x] More real-world testing feedback: the turn-by-turn instruction
+      banner was often slow to update once a maneuver was actually passed
+      - the live marker position updated promptly, but the instruction
+      text lagged behind, sometimes for a while. Root cause:
+      `nextNavigationStep` (`navigation_progress.dart`) only ever counted a
+      step as "reached" within a tight 40m radius of the API's exact
+      endpoint coordinate - ordinary GPS drift plus normal lane position
+      (rarely exactly on the routed centerline) regularly puts real
+      driving further than that away, especially at wider junctions and
+      roundabouts, leaving the banner stuck on an already-completed
+      maneuver until happening to come within radius of a *later* step.
+      Bumped `stepArrivalRadiusMeters` to 75m - still tighter than
+      `waypointArrivalRadiusMeters`/`ownerWaypointClearRadiusMeters` in
+      route_progress.dart since consecutive turns are legitimately closer
+      together than planned stops, but forgiving enough for real-world
+      positioning. New unit test covers a position ~60m off a step's exact
+      endpoint (inside the new radius, outside the old one) still
+      correctly advancing. 135 tests total, all passing; `flutter analyze`
+      clean.
 
 ## Needed before this is usable end-to-end
 
@@ -1080,3 +1099,28 @@ list see [README.md](README.md).
       `battery_plus` plugin the warning above already uses) alongside the
       existing heading/speed, plus a place to surface it (roster row?
       marker badge?).
+- [ ] "Chase mode" - a per-member opt-in that ignores the owner's set
+      route/waypoints entirely and instead personally navigates to
+      wherever the owner currently is (or their last known position, if
+      the owner's signal is lost), continuously updating as the owner
+      moves - for a member who'd rather just catch up to the owner
+      directly than follow the planned stops. Off by default. Entry point
+      depends on whether the owner has set a route yet: once a route
+      exists, a toggle in the "..." menu; before one exists, a button in
+      the center of the screen (same style/position as the owner's own
+      "Set route" CTA, stacked above the existing "Just track" button) -
+      that center button disappears the moment a route is set, same as
+      the owner's CTA already does.
+      Realistic path: this reuses most of what's already built for the
+      per-device personal ETA overlay (`_recalculateMyEta`) and the
+      owner's shared-route recalculation (`_maybeRerouteSharedRoute`) -
+      same throttled `DirectionsService.route()` call, just targeting the
+      owner's live location instead of the route's destination/waypoints,
+      recalculated as the owner moves. Main open questions: exact
+      placement/interaction with the existing owner-only Set
+      route/Just track CTA block in `map_screen.dart` (both owner and
+      non-owner center-screen CTAs currently assume they're the only one
+      showing), and whether "chase mode" should persist across app
+      restarts (a synced per-member Firestore field) or reset each
+      session (plain local state, like the existing manual "skip ahead"
+      toggle).

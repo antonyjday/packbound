@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:convoy_app/models/route_plan.dart';
 import 'package:convoy_app/utils/navigation_progress.dart';
 
@@ -32,6 +33,18 @@ void main() {
 
     test('returns null for an empty step list', () {
       expect(nextNavigationStep(RouteStop(lat: 0, lng: 0), []), isNull);
+    });
+
+    test('advances even when real-world driving position is well off the '
+        "step's exact endpoint (GPS drift/lane position/wide junctions)", () {
+      // ~60m from step 0's endpoint - within the 75m real-world radius, but
+      // would have been stuck outside the old 40m one.
+      final nearButOffStep0 = RouteStop(lat: 37.00054, lng: -122.0);
+      expect(
+        Geolocator.distanceBetween(37.0, -122.0, nearButOffStep0.lat, nearButOffStep0.lng),
+        lessThan(75),
+      );
+      expect(nextNavigationStep(nearButOffStep0, steps), same(steps[1]));
     });
   });
 

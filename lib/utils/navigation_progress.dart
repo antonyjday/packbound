@@ -15,7 +15,14 @@ const minReliableStepBearingMeters = 25.0;
 /// How close to a turn-by-turn step's endpoint counts as "reached" - much
 /// tighter than [waypointArrivalRadiusMeters] in route_progress.dart, since
 /// consecutive maneuvers can be a lot closer together than planned stops.
-const stepArrivalRadiusMeters = 40.0;
+/// Real-world testing found 40m too tight: ordinary GPS drift plus lane
+/// position (you're rarely driving exactly along the API's precise routed
+/// centerline) regularly put real driving further than that from a step's
+/// exact endpoint, especially at wider junctions/roundabouts - the
+/// instruction banner would then keep showing an already-completed
+/// maneuver until happening to come within radius of a *later* step,
+/// which could take a while.
+const stepArrivalRadiusMeters = 75.0;
 
 /// The next turn-by-turn instruction still ahead of [myPosition], out of
 /// [steps] (already in route order) - or null once every step's endpoint

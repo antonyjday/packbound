@@ -1075,6 +1075,11 @@ list see [README.md](README.md).
       clean after an earlier false alarm turned out to be a UI
       coordinate-shift artifact from an unrelated long delay between
       reading the button's position and tapping it, not a real bug).
+- [x] Fixed: after the zoom controls started shifting up to clear the OS
+      gesture/nav bar, they ended up colliding with the push-to-talk mic
+      button instead, which was still pinned at a fixed `bottom: 130` with
+      no inset. Mic button now shifts up by the same
+      `MediaQuery.padding.bottom` amount so the two move in tandem.
 
 ## Needed before this is usable end-to-end
 

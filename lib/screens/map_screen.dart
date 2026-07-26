@@ -2387,7 +2387,7 @@ class _MapScreenState extends State<MapScreen> {
                     // "talk" repeatedly benefits from it being right above
                     // where their thumb already rests near the zoom controls.
                     Positioned(
-                      bottom: 130,
+                      bottom: 130 + MediaQuery.of(context).padding.bottom,
                       right: 12,
                       child: GestureDetector(
                         onTap: () => _recordingVoice

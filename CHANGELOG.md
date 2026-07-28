@@ -1135,3 +1135,33 @@ list see [README.md](README.md).
       `battery_plus` plugin the warning above already uses) alongside the
       existing heading/speed, plus a place to surface it (roster row?
       marker badge?).
+- [ ] Android Auto support - today Packbound declares no car-app support,
+      so it's invisible to Auto and just keeps running normally on the
+      phone in the background while Auto handles nav separately (no
+      Play Store action needed for that - see PLAY_STORE_SETUP.md).
+      Actually showing up on the head unit screen is a real feature, not
+      a submission checkbox, and shouldn't be started until the existing
+      phone-screen turn-by-turn nav (`lib/utils/navigation_progress.dart`,
+      `lib/utils/route_progress.dart`, `set_route_screen.dart`/
+      `map_screen.dart`) has real-world mileage - Auto's review bar and
+      driver-distraction expectations are higher than a phone screen's,
+      so bugs there are worse to ship. Rough path once that's proven out:
+      - Prerequisite: apply for Car App Library category entitlement in
+        Play Console before any Auto UI is even visible on a head unit -
+        this is a manual Google approval step, separate from normal app
+        review, and worth kicking off early given unknown lead time.
+        Packbound most likely fits **Navigation** (shared route/ETA) or
+        **Messaging** (quick messages/voice clips) - possibly both, but
+        each category has its own template rules, so picking one to start
+        is simpler than building against two at once.
+      - Build a car-screen UI with `androidx.car.app` (Car App Library) -
+        this is a hard requirement, not a nice-to-have: Auto restricts
+        head-unit screens to library templates, so none of the existing
+        Flutter map/UI code can be reused as-is for the car screen itself.
+      - Scope the first version narrow - e.g. live ETA/next-turn plus
+        roster status as a Navigation-template screen - rather than
+        porting the full phone feature set (voice messages, QR join, etc)
+        in one pass.
+      - Re-test the driver-distraction/interaction rules specifically for
+        whatever's shown on the car screen, since Google's Auto review
+        checks this independently of the phone app.

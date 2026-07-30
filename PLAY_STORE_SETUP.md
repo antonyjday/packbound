@@ -98,7 +98,7 @@ stale, forgotten trip quietly tracking anyone.
 Learn more, or read the full privacy policy, at packbound.net.
 ```
 
-**Contact email:** (add whichever address you want public on the listing)
+**Contact email:** support@packbound.net
 
 **Privacy Policy URL:** https://packbound.net/privacy
 

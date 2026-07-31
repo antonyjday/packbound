@@ -102,6 +102,8 @@ Learn more, or read the full privacy policy, at packbound.net.
 
 **Privacy Policy URL:** https://packbound.net/privacy
 
+**Delete data URL:** https://packbound.net/delete-data
+
 ## Data Safety questionnaire
 
 Answers below match what's actually in the code and the privacy policy -

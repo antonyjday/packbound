@@ -1080,6 +1080,16 @@ list see [README.md](README.md).
       button instead, which was still pinned at a fixed `bottom: 130` with
       no inset. Mic button now shifts up by the same
       `MediaQuery.padding.bottom` amount so the two move in tandem.
+- [x] New scheduled Cloud Function `purgeStaleUserProfiles` - deletes
+      `users/{uid}` profile docs (display name, lastSeen, push token)
+      untouched for `USER_PROFILE_RETENTION_DAYS` (180 days). Found while
+      writing packbound.net/delete-data for the Play Store Data Safety
+      form: this doc lives outside any group's subcollections, so none of
+      the existing group-expiry sweeps ever cleaned it up - a device that
+      signed in once and never returned would have kept a profile
+      forever. Gives the "data is deleted automatically" claim on that
+      page (and in the privacy policy) a real backstop instead of relying
+      purely on someone emailing in a deletion request.
 
 ## Needed before this is usable end-to-end
 

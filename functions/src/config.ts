@@ -59,3 +59,16 @@ export const SIGNAL_LOST_SWEEP_SCHEDULE = 'every 5 minutes';
 // arrival push notification. Mirrors waypointArrivalRadiusMeters in the
 // Flutter client's lib/utils/route_progress.dart.
 export const ARRIVAL_RADIUS_METERS = 500;
+
+// A signed-in device's `users/{uid}` profile doc (display name, lastSeen,
+// push token) isn't tied to any one trip, so the group-cleanup sweeps
+// above never touch it. This is the backstop retention window referenced
+// on packbound.net/delete-data - after this long with the app unopened
+// (so `updateLastSeen` hasn't fired - see AuthService), the profile is
+// treated as abandoned and purged automatically, rather than relying on
+// someone actually emailing in a deletion request.
+export const USER_PROFILE_RETENTION_DAYS = 180;
+
+// Low-frequency, same reasoning as PURGE_SWEEP_SCHEDULE - staleness here
+// is measured in months, so there's no need to check often.
+export const USER_PROFILE_PURGE_SCHEDULE = 'every 24 hours';

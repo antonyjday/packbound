@@ -16,6 +16,8 @@ import {
   SIGNAL_LOST_NOTIFY_MINUTES,
   SIGNAL_LOST_SWEEP_SCHEDULE,
   ARRIVAL_RADIUS_METERS,
+  USER_PROFILE_RETENTION_DAYS,
+  USER_PROFILE_PURGE_SCHEDULE,
 } from './config';
 
 initializeApp();
@@ -394,3 +396,33 @@ export const notifyOnQuickMessage = onDocumentCreated(
     });
   }
 );
+
+/**
+ * Daily sweep: permanently deletes `users/{uid}` profile docs (display
+ * name, lastSeen, push token) that have gone untouched for
+ * USER_PROFILE_RETENTION_DAYS. This doc isn't part of any group's
+ * subcollections, so nothing above ever cleans it up - a device that
+ * signs in once and never returns would otherwise keep a profile forever.
+ * `lastSeen` is bumped by AuthService.updateLastSeen() on every app open,
+ * not just first sign-in, so staleness here really does mean "not opened
+ * in USER_PROFILE_RETENTION_DAYS", not "hasn't started a new trip".
+ * This is the automatic backstop referenced on packbound.net/delete-data -
+ * an emailed deletion request is actioned immediately by hand, but this
+ * sweep means the data doesn't linger indefinitely even if nobody asks.
+ */
+export const purgeStaleUserProfiles = onSchedule(USER_PROFILE_PURGE_SCHEDULE, async () => {
+  const cutoff = Timestamp.fromMillis(Date.now() - USER_PROFILE_RETENTION_DAYS * DAY_MS);
+
+  const snap = await db.collection('users').where('lastSeen', '<=', cutoff).get();
+
+  if (snap.empty) {
+    logger.info('purgeStaleUserProfiles: nothing to purge');
+    return;
+  }
+
+  const batch = db.batch();
+  snap.docs.forEach((doc) => batch.delete(doc.ref));
+  await batch.commit();
+
+  logger.info(`purgeStaleUserProfiles: permanently deleted ${snap.size} stale profile(s)`);
+});

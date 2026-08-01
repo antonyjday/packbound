@@ -60,3 +60,9 @@ key.properties
 # checkboxes for one person to tick through, not project reference
 # material (that's PLAY_STORE_SETUP.md, which is tracked).
 /PLAY_STORE_PROGRESS.md
+
+# Play Console compliance/demo recordings (e.g. the background-location
+# permission walkthrough) - large, one-off artifacts staged here only to
+# get uploaded to YouTube for a Play Console form, not project reference
+# material worth keeping in git history.
+/store-assets/*.mp4

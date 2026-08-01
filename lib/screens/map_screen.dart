@@ -120,6 +120,16 @@ class _MapScreenState extends State<MapScreen> {
   // route CTA moving into the menu once a route exists.
   bool _chaseCtaDismissed = false;
 
+  // Owner-only "Start trip" button (see _startTrip): recalculates the
+  // shared route from the owner's current position, dropping whatever
+  // start point was picked when the route was originally planned - often
+  // stale, since a route set well in advance rarely starts exactly where
+  // the owner actually is once they leave. Local/ephemeral, same pattern
+  // as _chaseCtaDismissed - resets if this screen is reopened, but by
+  // then the route's start point is already current anyway.
+  bool _startTripDismissed = false;
+  bool _startTripInFlight = false;
+
   // The group's current owner uid, seed-then-synced off the same
   // group-doc listener as _route/_tripType above (ownership can change
   // mid-trip if the owner leaves) - needed to look up the owner's own
@@ -526,7 +536,11 @@ class _MapScreenState extends State<MapScreen> {
   /// classifyTurnManeuver/relabelHeadInstruction/maneuverIcon in
   /// navigation_progress.dart) since which one applies depends on this
   /// device's live heading, not just the step itself.
-  Widget _buildNavigationBar(String text, IconData icon, double distanceMeters) {
+  Widget _buildNavigationBar(
+    String text,
+    IconData icon,
+    double distanceMeters,
+  ) {
     // Landscape has far less vertical slack than portrait (the top button
     // rail runs horizontally there instead - see isLandscapeButtonRail
     // above), so this bar trims its own padding/icon size in that
@@ -1134,6 +1148,52 @@ class _MapScreenState extends State<MapScreen> {
         .whenComplete(() => _rerouteInFlight = false);
   }
 
+  /// Owner-only: manual counterpart to the automatic recalculation above,
+  /// for the moment the trip actually begins rather than waiting for a
+  /// waypoint to clear or a real detour to accumulate. A route is often
+  /// planned well before departure (the night before, say), so its start
+  /// point rarely matches where the owner actually is once they leave -
+  /// this snaps the shared route to start from right here, right now,
+  /// dropping the old start point entirely in favour of the first
+  /// remaining waypoint (or the destination, if there are none).
+  Future<void> _startTrip() async {
+    final route = _route;
+    if (route == null || _startTripInFlight) return;
+
+    final mine = _latestPoints.where((p) => p.userId == _authService.uid);
+    if (mine.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Still waiting for your location - try again in a moment",
+          ),
+        ),
+      );
+      return;
+    }
+    final myPosition = RouteStop(lat: mine.first.lat, lng: mine.first.lng);
+
+    setState(() => _startTripInFlight = true);
+    try {
+      final result = await _directionsService.route(
+        origin: myPosition,
+        destination: route.destination,
+        waypoints: route.waypoints,
+        mode: _tripType.directionsMode,
+      );
+      await _groupService.setRoute(widget.group.id, result);
+      if (mounted) setState(() => _startTripDismissed = true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Couldn't start trip: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _startTripInFlight = false);
+    }
+  }
+
   /// Advances the manual "skip ahead" override by one leg (start point,
   /// then each waypoint in order); once every leg is skipped - meaning
   /// this member's route already goes straight to the destination -
@@ -1320,7 +1380,9 @@ class _MapScreenState extends State<MapScreen> {
 
     if (newMessages.isEmpty) return;
     _pendingMessageAlerts.addAll(newMessages);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowNextMessageAlert());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _maybeShowNextMessageAlert(),
+    );
   }
 
   /// Shows queued quick-message alerts one at a time, centered and requiring
@@ -1356,9 +1418,9 @@ class _MapScreenState extends State<MapScreen> {
           message.isVoice
               ? Icons.mic
               : (iconForQuickMessageText(message.text) ??
-                  (message.text == _lowBatteryMessageText
-                      ? Icons.battery_alert
-                      : Icons.campaign)),
+                    (message.text == _lowBatteryMessageText
+                        ? Icons.battery_alert
+                        : Icons.campaign)),
           size: 40,
         ),
         title: Text(message.senderName, textAlign: TextAlign.center),
@@ -1375,13 +1437,15 @@ class _MapScreenState extends State<MapScreen> {
                   StreamBuilder<PlayerState>(
                     stream: player!.playerStateStream,
                     builder: (context, snapshot) {
-                      final completed = snapshot.data?.processingState ==
+                      final completed =
+                          snapshot.data?.processingState ==
                           ProcessingState.completed;
                       // just_audio leaves `playing` true after a clip runs
                       // to the end (it only reflects "not paused") - fold in
                       // `completed` so the button reverts to a play icon
                       // once the clip actually finishes, ready to replay.
-                      final playing = (snapshot.data?.playing ?? false) && !completed;
+                      final playing =
+                          (snapshot.data?.playing ?? false) && !completed;
                       return IconButton.filled(
                         iconSize: 40,
                         icon: Icon(playing ? Icons.pause : Icons.play_arrow),
@@ -1428,7 +1492,9 @@ class _MapScreenState extends State<MapScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Microphone permission is needed to send voice messages'),
+            content: Text(
+              'Microphone permission is needed to send voice messages',
+            ),
           ),
         );
       }
@@ -1438,7 +1504,9 @@ class _MapScreenState extends State<MapScreen> {
       await _voiceMessageService.startRecording();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
       return;
     }
@@ -1454,7 +1522,9 @@ class _MapScreenState extends State<MapScreen> {
       result = await _voiceMessageService.stopAndUpload(widget.group.id);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
       return;
     }
@@ -1471,7 +1541,9 @@ class _MapScreenState extends State<MapScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -1487,7 +1559,9 @@ class _MapScreenState extends State<MapScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -1619,7 +1693,10 @@ class _MapScreenState extends State<MapScreen> {
   // to all look identical whenever multiple members were "live" (same
   // orange pin), making it impossible to tell who was who without tapping
   // each one.
-  Set<Marker> _buildMarkers(List<LocationPoint> points, Map<String, double> hues) {
+  Set<Marker> _buildMarkers(
+    List<LocationPoint> points,
+    Map<String, double> hues,
+  ) {
     return points.map((p) {
       final hue = hues[p.userId]!;
       final alpha = switch (p.status) {
@@ -1682,7 +1759,8 @@ class _MapScreenState extends State<MapScreen> {
     final mine = points.where((p) => p.userId == _authService.uid);
     if (mine.isEmpty) return;
     final me = mine.first;
-    if (me.speed < _tripType.movingSpeedThresholdMps) return; // not moving - stay put
+    if (me.speed < _tripType.movingSpeedThresholdMps)
+      return; // not moving - stay put
 
     _animateCamera(CameraUpdate.newLatLng(LatLng(me.lat, me.lng)));
   }
@@ -2136,9 +2214,10 @@ class _MapScreenState extends State<MapScreen> {
           // (e.g. not sharing to Firestore, but still has a live GPS fix for
           // the "my route" polyline below) - otherwise that lookup would
           // have no entry for "me" at all.
-          final memberHues = markerHuesForUsers(
-            {...points.map((p) => p.userId), _authService.uid!},
-          );
+          final memberHues = markerHuesForUsers({
+            ...points.map((p) => p.userId),
+            _authService.uid!,
+          });
           final markers = {
             ..._buildMarkers(points, memberHues),
             if (route != null) ..._buildRouteMarkers(route),
@@ -2237,8 +2316,10 @@ class _MapScreenState extends State<MapScreen> {
                   myLocation.heading,
                   stepBearing,
                 );
-                navInstructionText =
-                    relabelHeadInstruction(nextStep.instruction, syntheticManeuver);
+                navInstructionText = relabelHeadInstruction(
+                  nextStep.instruction,
+                  syntheticManeuver,
+                );
                 navInstructionIcon = maneuverIcon(syntheticManeuver);
               } else {
                 navInstructionText = nextStep.instruction;
@@ -2349,7 +2430,9 @@ class _MapScreenState extends State<MapScreen> {
                       child: FloatingActionButton.small(
                         heroTag: 'toggleSharing',
                         onPressed: _toggleSharing,
-                        backgroundColor: _sharing ? Colors.red : BrandColors.coral,
+                        backgroundColor: _sharing
+                            ? Colors.red
+                            : BrandColors.coral,
                         tooltip: _sharing
                             ? 'Stop sharing my location'
                             : 'Start sharing my location',
@@ -2396,7 +2479,9 @@ class _MapScreenState extends State<MapScreen> {
                         child: Material(
                           color: _recordingVoice
                               ? Colors.red
-                              : Theme.of(context).colorScheme.secondaryContainer,
+                              : Theme.of(
+                                  context,
+                                ).colorScheme.secondaryContainer,
                           shape: const CircleBorder(),
                           elevation: 4,
                           child: Tooltip(
@@ -2411,7 +2496,9 @@ class _MapScreenState extends State<MapScreen> {
                                 size: 28,
                                 color: _recordingVoice
                                     ? Colors.white
-                                    : Theme.of(context).colorScheme.onSecondaryContainer,
+                                    : Theme.of(
+                                        context,
+                                      ).colorScheme.onSecondaryContainer,
                               ),
                             ),
                           ),
@@ -2547,43 +2634,106 @@ class _MapScreenState extends State<MapScreen> {
                             MediaQuery.of(context).padding.bottom,
                         left: 24,
                         right: 24,
-                        child: Wrap(
-                          direction:
-                              MediaQuery.of(context).orientation ==
-                                  Orientation.landscape
-                              ? Axis.horizontal
-                              : Axis.vertical,
-                          alignment: WrapAlignment.start,
-                          spacing: 2,
-                          runSpacing: 2,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (route != null)
-                              _RouteMarkerLegend(
-                                hasStops: route.waypoints.isNotEmpty,
+                            // Owner-only "Start trip" - sits directly above
+                            // the start/stop/destination legend rather than
+                            // center-screen, so the owner can still see
+                            // everyone else's live position (and the
+                            // legend/ETA chips right below it) while
+                            // deciding whether to press it, instead of it
+                            // covering the map the way "Set route" does
+                            // before a route exists.
+                            if (_isOwner &&
+                                !_groupEnded &&
+                                route != null &&
+                                !_startTripDismissed)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: Center(
+                                    child: FilledButton.icon(
+                                      onPressed: _startTripInFlight
+                                          ? null
+                                          : _startTrip,
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: BrandColors.green,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 28,
+                                          vertical: 18,
+                                        ),
+                                        textStyle: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            32,
+                                          ),
+                                        ),
+                                        elevation: 6,
+                                      ),
+                                      icon: _startTripInFlight
+                                          ? const SizedBox(
+                                              height: 20,
+                                              width: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : const Icon(
+                                              Icons.play_arrow,
+                                              size: 26,
+                                            ),
+                                      label: const Text('Start trip'),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            if (route != null)
-                              _RouteInfoChip(
-                                icon: Icons.alt_route,
-                                label:
-                                    'Full route: '
-                                    '${_formatDistanceDuration(route.distanceMeters, route.durationSeconds)}'
-                                    '${_myEtaRemainingStops > 0 && !_chaseModeEnabled ? ' ($_myEtaRemainingStops stop${_myEtaRemainingStops == 1 ? '' : 's'} left)' : ''}',
-                              ),
-                            if (_chaseModeEnabled)
-                              _RouteInfoChip(
-                                icon: Icons.follow_the_signs,
-                                label: 'Chasing $chaseTargetName',
-                              ),
-                            if (_myEtaDuration != null &&
-                                _myEtaDistanceMeters != null)
-                              _RouteInfoChip(
-                                icon: Icons.navigation,
-                                label:
-                                    '${_chaseModeEnabled ? 'To them' : 'You'}: '
-                                    '${_formatDistanceDuration(_myEtaDistanceMeters!.round(), _myEtaDuration!.inSeconds)}'
-                                    ' · ETA '
-                                    '${_formatClockTime(DateTime.now().add(_myEtaDuration!))}',
-                              ),
+                            Wrap(
+                              direction:
+                                  MediaQuery.of(context).orientation ==
+                                      Orientation.landscape
+                                  ? Axis.horizontal
+                                  : Axis.vertical,
+                              alignment: WrapAlignment.start,
+                              spacing: 2,
+                              runSpacing: 2,
+                              children: [
+                                if (route != null)
+                                  _RouteMarkerLegend(
+                                    hasStops: route.waypoints.isNotEmpty,
+                                  ),
+                                if (route != null)
+                                  _RouteInfoChip(
+                                    icon: Icons.alt_route,
+                                    label:
+                                        'Full route: '
+                                        '${_formatDistanceDuration(route.distanceMeters, route.durationSeconds)}'
+                                        '${_myEtaRemainingStops > 0 && !_chaseModeEnabled ? ' ($_myEtaRemainingStops stop${_myEtaRemainingStops == 1 ? '' : 's'} left)' : ''}',
+                                  ),
+                                if (_chaseModeEnabled)
+                                  _RouteInfoChip(
+                                    icon: Icons.follow_the_signs,
+                                    label: 'Chasing $chaseTargetName',
+                                  ),
+                                if (_myEtaDuration != null &&
+                                    _myEtaDistanceMeters != null)
+                                  _RouteInfoChip(
+                                    icon: Icons.navigation,
+                                    label:
+                                        '${_chaseModeEnabled ? 'To them' : 'You'}: '
+                                        '${_formatDistanceDuration(_myEtaDistanceMeters!.round(), _myEtaDuration!.inSeconds)}'
+                                        ' · ETA '
+                                        '${_formatClockTime(DateTime.now().add(_myEtaDuration!))}',
+                                  ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -2596,7 +2746,10 @@ class _MapScreenState extends State<MapScreen> {
                     // going forward) or the owner dismisses it below, and
                     // only for the owner, since they're the only one who can
                     // actually set a route.
-                    if (_isOwner && !_groupEnded && route == null && !_routeSkipped)
+                    if (_isOwner &&
+                        !_groupEnded &&
+                        route == null &&
+                        !_routeSkipped)
                       Align(
                         alignment: const Alignment(0, 0.35),
                         child: Column(
@@ -2692,7 +2845,10 @@ class _MapScreenState extends State<MapScreen> {
                                 ),
                                 elevation: 6,
                               ),
-                              icon: const Icon(Icons.follow_the_signs, size: 26),
+                              icon: const Icon(
+                                Icons.follow_the_signs,
+                                size: 26,
+                              ),
                               label: const Text('Chase mode'),
                             ),
                             const SizedBox(height: 10),
@@ -2722,7 +2878,6 @@ class _MapScreenState extends State<MapScreen> {
                           ],
                         ),
                       ),
-
                   ],
                 ),
               ),

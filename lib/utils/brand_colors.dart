@@ -15,4 +15,9 @@ class BrandColors {
   static const teal = Color(0xFF17BEBB);
   static const amber = Color(0xFFFFC145);
   static const surface = Color(0xFFF6F4FF);
+  // Deliberate exception to "four colours, no more" - "Start trip" needs
+  // an unambiguous go/start signal that none of the four above carry
+  // (teal is closest, but already means something else - live/active
+  // status elsewhere in the app).
+  static const green = Color(0xFF2E9E5B);
 }

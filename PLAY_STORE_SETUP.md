@@ -56,7 +56,7 @@ via `apksigner`/`jarsigner`):
 Live location sharing for travel groups - no account, no ads, no lingering data.
 ```
 
-**Full description** (4000 char limit, ~1450 used):
+**Full description** (4000 char limit, ~1800 used):
 
 ```
 Packbound keeps your travel group together with live location sharing, a
@@ -75,6 +75,8 @@ FEATURES
 - The trip owner can set a shared route with stops; everyone gets their
   own live ETA and turn-by-turn directions - or skip the route entirely
   and just track each other on a route you already know
+- Chase mode - fell behind? Get live directions straight to wherever the
+  trip owner currently is, instead of following the planned stops
 - Quick preset messages and voice clips to the group, plus low battery
   and lost-signal alerts
 - Dark mode
@@ -175,6 +177,12 @@ entirely and is deleted the moment they leave the trip or the trip ends.
 staged here for uploading to Play Console.)
 
 ## Rollout process (not a content/code task, just a reminder)
+
+**Closed testing is live** - the app is released to the closed testing
+track at `https://play.google.com/apps/testing/net.packbound.app`
+(website's "Join the beta" / "Join the Android beta" links across
+`index.html`, `privacy.html`, `delete-data.html`, and `join/index.html`
+all point here now, replacing the old direct-APK-from-GitHub links).
 
 New developer accounts need a closed testing track with a minimum number
 of opted-in testers (Google's exact current number/duration should be

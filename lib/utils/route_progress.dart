@@ -46,7 +46,10 @@ List<RouteStop> remainingLegs(
       lastReachedIndex = i;
     }
   }
-  final passedCount = max(lastReachedIndex + 1, manualSkipCount).clamp(0, legs.length);
+  final passedCount = max(
+    lastReachedIndex + 1,
+    manualSkipCount,
+  ).clamp(0, legs.length);
   return legs.sublist(passedCount);
 }
 
@@ -57,6 +60,13 @@ List<RouteStop> remainingLegs(
 /// harder-to-undo action than just fading it from one viewer's own ETA
 /// overlay.
 const ownerWaypointClearRadiusMeters = 100.0;
+
+/// How close the owner must be to the route's start point before
+/// MapScreen's "Start trip" button appears - deliberately the same
+/// tightness as [ownerWaypointClearRadiusMeters], for the same reason:
+/// this also drops/replaces a leg of the group's shared route for good,
+/// so it shouldn't offer to fire from a rough "somewhere nearby" guess.
+const startPointArrivalRadiusMeters = 100.0;
 
 /// Waypoints not yet reached by [position], in order - the same
 /// "furthest-in-sequence leg reached wins" heuristic as [remainingLegs],

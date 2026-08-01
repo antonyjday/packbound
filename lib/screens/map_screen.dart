@@ -848,6 +848,12 @@ class _MapScreenState extends State<MapScreen> {
         ),
       ),
     );
+    // A (re)plan may have picked a start point away from wherever the
+    // owner currently is - give "Start trip" another chance to show even
+    // if it was already dismissed earlier this session. Harmless if
+    // nothing actually changed (SetRouteScreen was just cancelled, say):
+    // the button's own proximity check still gates it as normal.
+    if (mounted) setState(() => _startTripDismissed = false);
   }
 
   Future<void> _clearRoute() async {
@@ -1192,6 +1198,22 @@ class _MapScreenState extends State<MapScreen> {
     } finally {
       if (mounted) setState(() => _startTripInFlight = false);
     }
+  }
+
+  /// Whether the owner is currently close enough to [route]'s start point
+  /// for the "Start trip" button to make sense - false (rather than true
+  /// by default) if there's no live position yet, same as every other
+  /// proximity check in this file bailing out when `mine` is empty.
+  bool _isNearRouteStart(RoutePlan route, List<LocationPoint> points) {
+    final mine = points.where((p) => p.userId == _authService.uid);
+    if (mine.isEmpty) return false;
+    final distanceMeters = Geolocator.distanceBetween(
+      mine.first.lat,
+      mine.first.lng,
+      route.origin.lat,
+      route.origin.lng,
+    );
+    return distanceMeters <= startPointArrivalRadiusMeters;
   }
 
   /// Advances the manual "skip ahead" override by one leg (start point,
@@ -2645,11 +2667,17 @@ class _MapScreenState extends State<MapScreen> {
                             // legend/ETA chips right below it) while
                             // deciding whether to press it, instead of it
                             // covering the map the way "Set route" does
-                            // before a route exists.
+                            // before a route exists. Gated on actually
+                            // being near the route's start point - see
+                            // _isNearRouteStart - rather than showing from
+                            // the moment a route is set, since a route
+                            // planned in advance may have a start point
+                            // nowhere near the owner yet.
                             if (_isOwner &&
                                 !_groupEnded &&
                                 route != null &&
-                                !_startTripDismissed)
+                                !_startTripDismissed &&
+                                _isNearRouteStart(route, points))
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 10),
                                 child: SizedBox(

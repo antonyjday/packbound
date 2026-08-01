@@ -38,6 +38,42 @@ something doable from here - needs your Console logins):
   losing the ability to publish updates under Google Play App Signing's
   upload-key model without going through Google's account-recovery process.
 
+### Play App Signing certificates - all four registered (2026-08-01)
+
+The SHA-1 above (`E9:B6:E5:39:...`) is the **upload key** - what
+`packbound-release.jks` actually signs locally. It is *not* what ships to
+users once Play App Signing is enrolled (the default for any app's first
+Play Console upload): Google re-signs the distributed APK with its own
+key, so the certificate a real device sees is different from the one a
+locally-built `.apk`/`.aab` is signed with. This caused a real incident -
+closed testing installs showed a blank map (`Authorization failure` in
+logcat) even though the Maps API key already had the debug and upload
+SHA-1s registered, because neither of those is the cert Play actually
+used to sign what testers installed.
+
+Play Console -> Protected with Play -> App signing lists the relevant
+certs. All of the following SHA-1s need to be on **both** the Maps API
+key's Android restriction (Google Cloud Console) **and** Firebase's SHA
+certificate fingerprints list (Project settings -> your Android app) -
+missing any one of them reproduces the same blank-map bug for whichever
+build path uses that cert:
+
+| Key | SHA-1 | Used by |
+|---|---|---|
+| Debug | `CD:1A:C7:7C:A...` (see Console for full value) | Local `flutter run` debug builds |
+| Upload key | `E9:B6:E5:39:ED:38:CE:DA:37:E2:88:B7:D6:EB:C8:BE:C9:64:90:60` | `packbound-release.jks` - locally-built release `.apk`/`.aab` before Play re-signs it |
+| App signing key (Classical) | `BB:8A:87:FC:8E:9A:E6:B4:F1:47:D9:0B:9B:05:F8:ED:85:FB:D4:CF` | Play's current signing key, "Classical key" block |
+| App signing key (previous/rotated) | `A1:2D:60:A4:C2:52:D3:2D:72:E2:4B:BD:39:4F:D0:4A:77:1F:96:9F` | What the closed testing track actually shipped as of 2026-08-01 - found under "Previous app signing keys" on the App signing page, not the current "in use" key |
+
+Note the **Post-quantum cryptography key** block on that same page
+(`A3:D0:F3:2F:51:32:D3:86:D5:EE:63:E6:BC:ED:99:C1:18:3B:3C:1D` as of
+2026-08-01) was a red herring here - it didn't match the failing cert,
+and doesn't currently need registering. If a *future* release still
+shows a blank map after checking the four certs above, check the App
+signing page again for a new "Previous app signing keys" entry or a
+key rotation - Play can change which cert actually signs a rollout
+without much visibility into it from this repo.
+
 Both artifacts build and are correctly signed with the new cert (verified
 via `apksigner`/`jarsigner`):
 - `flutter build apk --release` -> `build/app/outputs/flutter-apk/app-release.apk`

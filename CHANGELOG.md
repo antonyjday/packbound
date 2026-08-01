@@ -1080,6 +1080,19 @@ list see [README.md](README.md).
       button instead, which was still pinned at a fixed `bottom: 130` with
       no inset. Mic button now shifts up by the same
       `MediaQuery.padding.bottom` amount so the two move in tandem.
+- [x] Fixed: closed testing installs from the Play Store showed a blank
+      map (`Authorization failure` in logcat) despite the Maps API key
+      already having the debug and upload-key SHA-1s registered. Root
+      cause: Play App Signing re-signs whatever gets uploaded, so the
+      cert on a real Play-distributed install is neither the debug nor
+      upload key - and in this case not even the "current" App signing
+      key Play Console shows as "in use", but a previous/rotated one
+      only visible under "Previous app signing keys" on the App signing
+      page. Fixed by registering that cert's SHA-1 with both the Maps
+      API key (Google Cloud Console) and Firebase - see
+      PLAY_STORE_SETUP.md's "Play App Signing certificates" section for
+      all four certs now registered and where to look if a future
+      release regresses this again.
 - [x] New scheduled Cloud Function `purgeStaleUserProfiles` - deletes
       `users/{uid}` profile docs (display name, lastSeen, push token)
       untouched for `USER_PROFILE_RETENTION_DAYS` (180 days). Found while

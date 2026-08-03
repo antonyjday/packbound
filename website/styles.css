@@ -28,6 +28,11 @@ html {
 
 body {
   margin: 0;
+  /* Safety net, not a fix in itself - a single unwrapped row (see the
+     flex-wrap added to .foot-links below, added after exactly this
+     class of bug) shouldn't be able to force page-wide horizontal
+     scroll just because it's one element in a long page. */
+  overflow-x: hidden;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--paper);
   color: var(--ink);
@@ -572,7 +577,8 @@ footer .brand-lockup svg {
 
 footer .foot-links {
   display: flex;
-  gap: 22px;
+  flex-wrap: wrap;
+  gap: 10px 22px;
   font-size: 13px;
   color: var(--ink-soft);
 }

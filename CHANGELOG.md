@@ -1103,6 +1103,8 @@ list see [README.md](README.md).
       forever. Gives the "data is deleted automatically" claim on that
       page (and in the privacy policy) a real backstop instead of relying
       purely on someone emailing in a deletion request.
+- [x] Removed the clock from the map screen's app bar - redundant with
+      the OS status bar's own clock, right next to it.
 
 ## Needed before this is usable end-to-end
 

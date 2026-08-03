@@ -2058,21 +2058,6 @@ class _MapScreenState extends State<MapScreen> {
         ),
         actionsIconTheme: const IconThemeData(size: 20),
         actions: [
-          // The clock is just DateTime.now() at build time - it stays
-          // live off the back of _staleTicker's 5s setState, no
-          // dedicated timer needed.
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              _formatClockTime(DateTime.now()),
-              style: TextStyle(
-                fontSize: 13,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.65),
-              ),
-            ),
-          ),
           // Always shown (not just for the owner) so every member has a
           // way to leave the trip - owner-only actions are added inside
           // conditionally instead of gating the whole menu.

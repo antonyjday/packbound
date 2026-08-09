@@ -1105,6 +1105,32 @@ list see [README.md](README.md).
       purely on someone emailing in a deletion request.
 - [x] Removed the clock from the map screen's app bar - redundant with
       the OS status bar's own clock, right next to it.
+- [x] Fixed a member being able to join a trip and never appear at all -
+      no marker, no roster entry - while still seeing everyone else
+      normally. Reported from real-world testing on a Galaxy S25 FE.
+      Three separate causes, all of which produced that same silent
+      outcome:
+      - `startSharing` wrote nothing until the position stream's first
+        event, and `distanceFilter` means that stream only fires once the
+        device has *moved* 25m. Someone who joins while parked - i.e.
+        waiting at the meeting point, exactly when people do join - never
+        got a location doc created, so both the markers and the roster
+        (which are built from that feed) had nothing to show. The
+        heartbeat didn't cover it either, since it re-sends
+        `_lastPosition`, still null until that first event. Now publishes
+        the OS's cached fix immediately, then a real one.
+      - Nothing retried after the first permission attempt, so granting
+        location from OS Settings *after* declining the in-app explainer
+        left sharing off for the rest of the trip. MapScreen now watches
+        app lifecycle and picks sharing back up on resume - only when
+        permission is already granted, so it doesn't re-nag anyone who
+        genuinely said no.
+      - The failure was invisible: a transient SnackBar at best, and the
+        sharing FAB's colour is far too subtle to read as "you are not
+        visible to your group". Added a persistent banner keyed off the
+        absence of this device's own location doc, which catches every
+        cause at once (permission, no fix, rejected write, OS killing the
+        tracking service) rather than any single one.
 
 ## Needed before this is usable end-to-end
 

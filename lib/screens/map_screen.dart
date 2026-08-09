@@ -39,7 +39,7 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   final _locationService = LocationService();
   final _groupService = GroupService();
   final _authService = AuthService();
@@ -250,6 +250,18 @@ class _MapScreenState extends State<MapScreen> {
   static const earlyWarningLead = Duration(hours: 4);
   static const finalWarningLead = Duration(hours: 1);
 
+  // How long this device gets to publish its first location before
+  // _buildNotVisibleBanner starts warning that nobody can see it. Covers
+  // the ordinary cold-fix wait (see LocationService's own first-fix
+  // timeout, which this is deliberately a little longer than) so the banner
+  // means "something is actually wrong", not "GPS is still waking up".
+  static const _visibilityGrace = Duration(seconds: 50);
+
+  // Restarted whenever sharing is switched on, so re-enabling it gets a
+  // fresh cold-fix allowance rather than being judged against when the
+  // screen happened to open.
+  DateTime _visibleByDeadline = DateTime.now().add(_visibilityGrace);
+
   // The owner-only "Extend trip 24h" menu item only makes sense once the
   // trip is actually getting close to its hard-cap deadline - offering it
   // any time the trip hasn't ended let an owner "extend" a trip that
@@ -260,6 +272,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _membersCanInvite = widget.group.membersCanInvite;
     _tripType = widget.group.tripType;
     _routeSkipped = widget.group.routeSkipped;
@@ -461,6 +474,61 @@ class _MapScreenState extends State<MapScreen> {
   /// This is exactly the scenario called out by design: a convoy that
   /// stops driving for the night should see this *before* the 24h cap
   /// would breach overnight, so the owner can extend ahead of time.
+  /// Warns the user when they have no entry in the group's locations feed -
+  /// i.e. nobody else can see them, and they have no marker of their own.
+  ///
+  /// Deliberately keyed off the *absence of the location doc itself* rather
+  /// than off any one cause, because the reasons are many and mostly
+  /// invisible from in here: permission declined at the explainer, location
+  /// services off, no GPS fix yet, the write being rejected, or the OS
+  /// killing the tracking service. All of them look identical to the group
+  /// (a member who joined and never appeared) and, before this banner,
+  /// looked identical to the user too: silent, with only a transient
+  /// SnackBar at most. Real-world testing hit exactly this - a member who
+  /// could see everyone else, believed their permissions were fine, and had
+  /// no idea they were invisible.
+  ///
+  /// [gracePassed] keeps it from flashing up during the normal few seconds
+  /// between opening the trip and the first fix landing.
+  Widget? _buildNotVisibleBanner({required bool gracePassed}) {
+    if (_groupEnded || !gracePassed) return null;
+
+    return Container(
+      width: double.infinity,
+      color: Colors.orange.shade800,
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      child: Row(
+        children: [
+          const Icon(Icons.location_disabled, color: Colors.white, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _sharing
+                  ? "The group can't see you yet — still waiting for a "
+                        'location fix.'
+                  : "The group can't see you — location sharing is off.",
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          if (!_sharing)
+            TextButton(
+              onPressed: _toggleSharing,
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.orange.shade800,
+                minimumSize: const Size(0, 32),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              child: const Text('Turn on'),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget? _buildExpiryBanner() {
     if (_groupEnded) return null;
     final remaining = _timeUntilExpiry;
@@ -1324,8 +1392,35 @@ class _MapScreenState extends State<MapScreen> {
     return markers;
   }
 
+  /// Picks sharing back up when the user returns to the app, if it isn't
+  /// already running and permission now allows it.
+  ///
+  /// The usual path here is someone who declined (or dismissed) the
+  /// permission explainer on entering the trip, then granted location
+  /// access from the OS Settings app afterwards. Nothing used to re-check
+  /// after that first attempt, so they'd stay silently unshared - no
+  /// marker, no roster entry - for the rest of the trip unless they
+  /// happened to find the sharing button themselves.
+  ///
+  /// Deliberately only starts when permission is *already* granted, rather
+  /// than calling _toggleSharing unconditionally: that would re-push the
+  /// permission explainer every time the app came back to the foreground,
+  /// which is nagging, not helping.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state != AppLifecycleState.resumed || _sharing || _groupEnded) return;
+    _locationService.checkPermissionStatus().then((status) {
+      final granted =
+          status == LocationPermission.always ||
+          status == LocationPermission.whileInUse;
+      if (granted && mounted && !_sharing) _toggleSharing();
+    });
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _staleTicker?.cancel();
     _batteryCheckTicker?.cancel();
     _voiceMessageService.dispose();
@@ -1665,7 +1760,10 @@ class _MapScreenState extends State<MapScreen> {
   /// you want from a driving companion app. Only on while _sharing is
   /// actually true, not for the whole time this screen is open.
   void _setSharing(bool value) {
-    setState(() => _sharing = value);
+    setState(() {
+      _sharing = value;
+      if (value) _visibleByDeadline = DateTime.now().add(_visibilityGrace);
+    });
     WakelockPlus.toggle(enable: value);
   }
 
@@ -2257,6 +2355,17 @@ class _MapScreenState extends State<MapScreen> {
               .where((p) => p.status == SignalStatus.lost)
               .length;
           final expiryBanner = _buildExpiryBanner();
+          // Only meaningful once the feed has actually loaded - an empty
+          // list from a stream that hasn't emitted yet isn't evidence of
+          // anything. The 5s _staleTicker rebuild is what brings this in
+          // once the grace period lapses, with no extra timer needed.
+          final notVisibleBanner =
+              snapshot.hasData &&
+                  !points.any((p) => p.userId == _authService.uid)
+              ? _buildNotVisibleBanner(
+                  gracePassed: DateTime.now().isAfter(_visibleByDeadline),
+                )
+              : null;
 
           // Roster/refit/"My location"/step-route/skip-route: a vertical
           // stack down the right edge in portrait (see the Positioned
@@ -2379,6 +2488,7 @@ class _MapScreenState extends State<MapScreen> {
                         ],
                       ),
                     ),
+                  if (notVisibleBanner != null) notVisibleBanner,
                   if (expiryBanner != null) expiryBanner,
                 ],
               ),

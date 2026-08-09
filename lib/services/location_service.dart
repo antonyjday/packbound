@@ -19,6 +19,12 @@ class LocationService {
   /// and the server-side notifyLostSignals sweep's 5-minute one.
   static const _heartbeatInterval = Duration(seconds: 20);
 
+  /// How long [_publishFirstFix] waits for a real fix before giving up and
+  /// leaving it to the position stream. Generous because this is the "cold
+  /// GPS in a car park" case it exists to cover, and nothing is blocked on
+  /// it - it runs unawaited alongside the stream.
+  static const _firstFixTimeout = Duration(seconds: 45);
+
   /// Checks current permission status WITHOUT triggering an OS prompt.
   /// Use this to decide whether to show an explainer before asking.
   Future<LocationPermission> checkPermissionStatus() {
@@ -127,17 +133,75 @@ class LocationService {
           .doc(groupId)
           .collection('locations')
           .doc(userId)
-          .set(point.toMap(), SetOptions(merge: true));
+          // Swallowed rather than left to become an unhandled async error:
+          // a failed write here (offline, or the trip ended out from under
+          // us) isn't independently actionable, and MapScreen already
+          // notices the resulting absence from the locations feed - see its
+          // "not visible to the group" banner.
+          .set(point.toMap(), SetOptions(merge: true))
+          .catchError((_) {});
     }
 
     _positionSub = Geolocator.getPositionStream(
       locationSettings: settings,
     ).listen(writePosition);
 
+    unawaited(_publishFirstFix(writePosition));
+
     _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) {
       final last = _lastPosition;
       if (last != null) writePosition(last);
     });
+  }
+
+  /// Publishes a position immediately on starting to share, instead of
+  /// waiting for the position stream's first event.
+  ///
+  /// distanceFilter means the stream only emits once the device has *moved*
+  /// that far, so someone who joins a trip while parked - or waiting at the
+  /// meeting point, which is exactly when people join - can produce no
+  /// stream event for a long time. Their location doc then never gets
+  /// created at all, and since both the map markers and the roster are
+  /// built from that feed, they're completely invisible to the group (and
+  /// see everyone else just fine, since reading is unaffected) despite
+  /// having correctly granted permission. The heartbeat timer doesn't cover
+  /// this either: it re-sends [_lastPosition], which is still null until
+  /// that first event.
+  ///
+  /// Tries the OS's cached fix first so the marker appears instantly, then
+  /// a real one, since the cached fix can be minutes old and some distance
+  /// away.
+  Future<void> _publishFirstFix(void Function(Position) writePosition) async {
+    Position? cached;
+    try {
+      cached = await Geolocator.getLastKnownPosition();
+    } catch (_) {
+      cached = null;
+    }
+    // Bail if sharing was stopped while awaiting, so a late seed can't
+    // resurrect a marker the user has deliberately switched off.
+    if (_positionSub == null) return;
+    if (cached != null && _lastPosition == null) writePosition(cached);
+
+    try {
+      final fresh = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: _firstFixTimeout,
+        ),
+      );
+      if (_positionSub == null) return;
+      final last = _lastPosition;
+      // The stream may have delivered something newer while this was in
+      // flight - don't walk the position backwards if so.
+      if (last == null || fresh.timestamp.isAfter(last.timestamp)) {
+        writePosition(fresh);
+      }
+    } catch (_) {
+      // No fix within the time limit (indoors, underground car park, cold
+      // GPS). The position stream is still running and will publish as soon
+      // as one arrives, so there's nothing to retry here.
+    }
   }
 
   Future<void> stopSharing() async {

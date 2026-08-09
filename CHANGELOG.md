@@ -1131,6 +1131,22 @@ list see [README.md](README.md).
         absence of this device's own location doc, which catches every
         cause at once (permission, no fix, rejected write, OS killing the
         tracking service) rather than any single one.
+- [x] Fixed the automatic reroute wiping out a start point the owner had
+      just deliberately set. Setting a start point anywhere other than
+      where the owner is standing left them more than
+      `routeDeviationThresholdMeters` from the new route's polyline -
+      because the route begins at the meeting point they haven't left for
+      yet - so `_maybeRerouteSharedRoute` read normal pre-departure
+      waiting as a detour and, on its next 2-minute tick, re-originated
+      the shared route from wherever the owner happened to be sitting.
+      The visible symptom was the "Start trip" button refusing to appear
+      and then appearing by itself a few minutes later, since by that
+      point the start point *was* the owner's own position. New
+      `isHeadingToRouteStart` distinguishes "hasn't set off yet" from
+      "detoured off a route already being driven" by asking which part of
+      the route is nearest - the start itself, or somewhere further along
+      - so the deviation trigger now stays quiet until the trip is
+      actually under way, and still fires normally for a real detour.
 
 ## Needed before this is usable end-to-end
 

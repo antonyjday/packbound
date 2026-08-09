@@ -166,4 +166,53 @@ void main() {
       expect(distanceFromRouteMeters(start, const []), double.infinity);
     });
   });
+
+  group('isHeadingToRouteStart', () {
+    // A route running due north from the start point - so anywhere south of
+    // it is "not set off yet", and anywhere off to the side of its middle
+    // is a detour from a route already being driven.
+    final routePoints = [
+      LatLng(start.lat, start.lng),
+      LatLng(waypoint1.lat, waypoint1.lng),
+      LatLng(waypoint2.lat, waypoint2.lng),
+      LatLng(destination.lat, destination.lng),
+    ];
+
+    test('true when still miles away from a start point not set off for', () {
+      final atHome = RouteStop(lat: 36.8, lng: -122.0); // ~22km south
+      expect(isHeadingToRouteStart(atHome, start, routePoints), isTrue);
+    });
+
+    test('true right next to the start point, before departure', () {
+      final atMeetingPoint = RouteStop(lat: 36.999, lng: -122.0);
+      expect(isHeadingToRouteStart(atMeetingPoint, start, routePoints), isTrue);
+    });
+
+    test('false when detoured off the middle of the route', () {
+      // Beside waypoint1, far from the start - a real deviation, and the
+      // case that must still trigger a reroute.
+      final detoured = RouteStop(lat: 37.1, lng: -122.005);
+      expect(isHeadingToRouteStart(detoured, start, routePoints), isFalse);
+    });
+
+    test('false past the end of the route, nowhere near its start', () {
+      final beyondDestination = RouteStop(lat: 37.35, lng: -122.0);
+      expect(
+        isHeadingToRouteStart(beyondDestination, start, routePoints),
+        isFalse,
+      );
+    });
+
+    test('false for an empty route, so detour detection is unaffected', () {
+      expect(isHeadingToRouteStart(start, start, const []), isFalse);
+    });
+
+    test('tolerates the origin not sitting exactly on the polyline', () {
+      // The Directions API snaps the origin to the nearest road, so the
+      // stored origin and the polyline's first vertex differ slightly.
+      final snappedStart = RouteStop(lat: 37.0002, lng: -122.0);
+      final atHome = RouteStop(lat: 36.8, lng: -122.0);
+      expect(isHeadingToRouteStart(atHome, snappedStart, routePoints), isTrue);
+    });
+  });
 }

@@ -123,3 +123,46 @@ double distanceFromRouteMeters(RouteStop position, List<LatLng> routePoints) {
   }
   return minDistance;
 }
+
+/// How much nearer the route's own start point has to be than the rest of
+/// the route before [isHeadingToRouteStart] stops calling it "still on the
+/// way to the start" - small, since it only exists to absorb the fact that
+/// the polyline's first vertex and the stored origin are never *exactly*
+/// the same coordinate (the Directions API snaps the origin to the road).
+const routeStartApproachToleranceMeters = 50.0;
+
+/// Whether [position] hasn't joined the route anywhere along its length yet
+/// and is still travelling towards its start - true when the route's own
+/// origin is, near enough, the closest part of the whole route.
+///
+/// Separates the two very different situations that both read as "far from
+/// the route": someone who simply hasn't set off for the meeting point yet,
+/// and someone who has genuinely detoured off a route they were already
+/// driving. Only the second is worth recalculating for. Without this,
+/// setting a start point anywhere other than where the owner is sitting
+/// made every pre-departure tick look like a
+/// [routeDeviationThresholdMeters] detour, so the automatic reroute would
+/// overwrite the deliberately-chosen start point with the owner's current
+/// position a couple of minutes after they set it.
+///
+/// Stateless on purpose, like every other progress check in this file: it
+/// asks "which part of the route am I nearest to *right now*", so it stops
+/// applying the moment the traveler is nearest to any later part of the
+/// route - including after they've driven past the start point and off
+/// course later on, which is exactly when detour detection should resume.
+bool isHeadingToRouteStart(
+  RouteStop position,
+  RouteStop origin,
+  List<LatLng> routePoints, {
+  double toleranceMeters = routeStartApproachToleranceMeters,
+}) {
+  if (routePoints.isEmpty) return false;
+  final distanceToOrigin = Geolocator.distanceBetween(
+    position.lat,
+    position.lng,
+    origin.lat,
+    origin.lng,
+  );
+  return distanceToOrigin <=
+      distanceFromRouteMeters(position, routePoints) + toleranceMeters;
+}

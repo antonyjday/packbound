@@ -1197,9 +1197,14 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         now.difference(_lastRerouteCheckAt!) >= const Duration(minutes: 2);
     if (deviationCheckDue) {
       _lastRerouteCheckAt = now;
+      final routePoints = decodePolyline(route.polyline);
       isDetour =
-          distanceFromRouteMeters(myPosition, decodePolyline(route.polyline)) >
-          routeDeviationThresholdMeters;
+          distanceFromRouteMeters(myPosition, routePoints) >
+              routeDeviationThresholdMeters &&
+          // Not yet under way: being far from a route whose start point you
+          // haven't left for is the normal state before departure, not a
+          // detour to correct - see isHeadingToRouteStart.
+          !isHeadingToRouteStart(myPosition, route.origin, routePoints);
     }
 
     if (!passedAWaypoint && !isDetour) return;

@@ -303,7 +303,10 @@ p {
 /* A real screenshot in a plain frame - not a hand-built fake UI. The
    frame is deliberately minimal (a hairline + shadow, no fake notch
    or button chrome) since the screenshot's own status bar already
-   does that work. */
+   does that work. Kept perfectly upright: a slight tilt was tried and
+   read as a rendering fault rather than a deliberate angle, since it's
+   too small to be obviously intentional next to the straight edges
+   around it. */
 .phone-mock {
   border: 1px solid var(--line-on-dark);
   border-radius: 26px;
@@ -311,7 +314,6 @@ p {
   overflow: hidden;
   line-height: 0;
   box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.55);
-  transform: rotate(1.5deg);
 }
 
 .phone-mock img {

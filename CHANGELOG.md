@@ -1171,6 +1171,13 @@ list see [README.md](README.md).
       Note for whoever changes this next: the group address is hardcoded
       in three places in `beta.html` (the join link, the leave link, and
       the `+subscribe` mailto fallback).
+- [x] Straightened the homepage hero screenshot, which carried a
+      `rotate(1.5deg)` on its frame. Several people read it as something
+      having rendered wrong rather than as a deliberate angle - at that
+      size it's too subtle to look intentional, while sitting next to
+      the perfectly straight edges of the surrounding layout. The source
+      PNG itself was never tilted, so removing the transform was the
+      whole fix.
 
 ## Needed before this is usable end-to-end
 

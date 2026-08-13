@@ -1171,6 +1171,18 @@ list see [README.md](README.md).
       Note for whoever changes this next: the group address is hardcoded
       in three places in `beta.html` (the join link, the leave link, and
       the `+subscribe` mailto fallback).
+- [x] Added a "See it in action" screenshot showcase to the homepage,
+      between the hero and the features grid - three real screens
+      (group tracking mid-trip, the quick-message sheet, an incoming
+      voice clip) rather than more prose claiming the same things.
+      Captured off the emulator against a genuine 20-mile route with
+      three spoofed members strung out behind the owner at 1.2/2.7/4.6
+      miles, so the distances and ETAs on screen are real rather than
+      staged. Full-size captures live in `store-assets/` (5-7,
+      continuing the Play Store numbering); the site gets 560px-wide
+      JPEGs instead, which took the three from 2.8MB to 343KB - a
+      straight PNG copy would have quadrupled the page weight for no
+      visible gain at the size they render.
 - [x] Straightened the homepage hero screenshot, which carried a
       `rotate(1.5deg)` on its frame. Several people read it as something
       having rendered wrong rather than as a deliberate angle - at that

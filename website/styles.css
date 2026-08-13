@@ -322,6 +322,62 @@ p {
   height: auto;
 }
 
+/* ---------- screenshot showcase ---------- */
+
+.shot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px 32px;
+}
+
+@media (max-width: 860px) {
+  .shot-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .shot-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.shot {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+/* Same hairline-and-shadow treatment as the hero's phone frame, just
+   smaller - the screenshots carry their own chrome, so the frame only
+   needs to say "this is a phone". */
+.shot-frame {
+  width: 100%;
+  max-width: 260px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  overflow: hidden;
+  line-height: 0;
+  background: var(--paper);
+  box-shadow: 0 24px 48px -24px rgba(36, 30, 69, 0.45);
+}
+
+.shot-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.shot figcaption {
+  max-width: 300px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+
 /* ---------- sections ---------- */
 
 section {

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join the beta — Packbound</title>
+<meta name="description" content="Get on the Packbound Android beta in two steps - join the testers group, then install from Google Play. No invite or approval needed.">
+<link rel="canonical" href="https://packbound.net/beta">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://packbound.net/beta">
+<meta property="og:title" content="Join the beta — Packbound">
+<meta property="og:description" content="Get on the Packbound Android beta in two steps - join the testers group, then install from Google Play. No invite or approval needed.">
+<meta property="og:image" content="https://packbound.net/og-image.png">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* Page-scoped: the two-step opt-in flow is only used here, so it stays
+     local rather than bloating the shared design system (same approach as
+     website/join/). */
+  .beta-steps {
+    margin: 36px 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: beta-step;
+  }
+
+  .beta-step {
+    counter-increment: beta-step;
+    position: relative;
+    padding: 24px 24px 24px 68px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+  }
+
+  .beta-step + .beta-step {
+    margin-top: 16px;
+  }
+
+  .beta-step::before {
+    content: counter(beta-step);
+    position: absolute;
+    left: 24px;
+    top: 24px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--coral);
+    color: #fff;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .beta-step h2 {
+    margin: 0 0 8px;
+    font-size: 18px;
+  }
+
+  /* .policy h2 carries a big top margin for prose sections - inside a step
+     card that would push the heading away from its own number badge. */
+  .policy .beta-step h2 {
+    margin-top: 0;
+  }
+
+  .beta-step p {
+    margin: 0;
+  }
+
+  .beta-step .btn {
+    margin-top: 16px;
+  }
+
+  .group-address {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    /* Long enough to force a horizontal scrollbar on narrow phones if it
+       can't break - anywhere is safe here since it's an address, not prose. */
+    overflow-wrap: anywhere;
+  }
+
+  .beta-callout {
+    margin: 32px 0 0;
+    padding: 20px 22px;
+    background: rgba(255, 193, 69, 0.14);
+    border: 1px solid rgba(255, 193, 69, 0.5);
+    border-left: 4px solid var(--amber);
+    border-radius: 12px;
+  }
+
+  .beta-callout h2 {
+    margin: 0 0 8px;
+    font-size: 16px;
+  }
+
+  .policy .beta-callout h2 {
+    margin-top: 0;
+  }
+
+  .beta-callout p {
+    margin: 0;
+  }
+</style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="wrap">
+    <a class="brand-lockup" href="index.html">
+      <svg viewBox="0 0 300 300" aria-hidden="true"><rect x="0" y="0" width="300" height="300" rx="64" fill="#241E45"/><g transform="translate(12.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#0F7C79"/></g></g><g transform="translate(128.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A67E2D"/></g></g><g transform="translate(54,72)"><g transform="scale(8.0)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#E65156"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A63A3E"/></g></g></svg>
+      <span>packbound</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html#features">Features</a>
+      <a href="index.html#privacy">Privacy</a>
+    </div>
+  </div>
+</nav>
+
+<main class="policy">
+  <div class="wrap">
+    <a class="back-link" href="index.html">&larr; Back to packbound.net</a>
+    <h1>Join the Android beta</h1>
+
+    <p style="margin-top:24px;">Packbound is in closed testing on Google Play
+    while it's finished off. Anyone can join - there's no invite list, no
+    approval step, and nothing to wait for. It takes two steps, and both
+    happen in your browser.</p>
+
+    <div class="beta-callout">
+      <h2>Use the same Google account for both steps</h2>
+      <p>Whichever Google account you use to join the group in step 1 has to
+      be the one your phone's Play Store is signed in to. This is the single
+      most common reason the beta link doesn't work - if you join on a
+      personal account but your phone uses a work or family one, Play will
+      tell you the app isn't available.</p>
+    </div>
+
+    <ol class="beta-steps">
+      <li class="beta-step">
+        <h2>Join the testers group</h2>
+        <p>Google Play needs to recognise you as a tester, which it does via
+        a Google Group. Open the group and press <strong>Join group</strong> -
+        you're added instantly, with no request to approve.</p>
+        <p style="margin-top:10px;">If you'd rather not use the web page, you
+        can also join by emailing
+        <a class="group-address" href="mailto:packbound-testers+subscribe@googlegroups.com">packbound-testers+subscribe@googlegroups.com</a>
+        from the right account and replying to the confirmation.</p>
+        <a class="btn btn-primary" href="https://groups.google.com/g/packbound-testers" target="_blank" rel="noopener">Join the testers group</a>
+      </li>
+
+      <li class="beta-step">
+        <h2>Opt in on Google Play</h2>
+        <p>Once you're in the group, open the testing link and press
+        <strong>Become a tester</strong>. From then on Packbound installs and
+        updates from the Play Store like any other app.</p>
+        <p style="margin-top:10px;">If the page says you're not eligible,
+        give step 1 a couple of minutes to propagate, then reload.</p>
+        <a class="btn btn-primary" href="https://play.google.com/apps/testing/net.packbound.app" target="_blank" rel="noopener">Become a tester on Play</a>
+      </li>
+    </ol>
+
+    <h2>What you're signing up for</h2>
+    <p>A beta build, so expect the occasional rough edge - that's rather the
+    point of testing it. Packbound is free, has no ads, and collects nothing
+    beyond what's needed to run a trip; see the
+    <a href="privacy.html">privacy policy</a> for the details.</p>
+    <p>The group exists purely to gate access to the test. It isn't a mailing
+    list and only the owner can post to it, so joining won't fill your inbox.</p>
+
+    <h2>Leaving the beta</h2>
+    <p>Open the <a href="https://play.google.com/apps/testing/net.packbound.app" target="_blank" rel="noopener">testing link</a>
+    again and choose to leave the programme, then uninstall the app. You can
+    also leave the Google Group from
+    <a href="https://groups.google.com/g/packbound-testers" target="_blank" rel="noopener">the group page</a>.
+    Anything you want deleted on top of that is covered on the
+    <a href="delete-data.html">delete your data</a> page.</p>
+
+    <h2>Something not working?</h2>
+    <p>Email <a href="mailto:support@packbound.net">support@packbound.net</a>
+    or open an issue on
+    <a href="https://github.com/antonyjday/packbound/issues" target="_blank" rel="noopener">GitHub</a>.
+    Bug reports from real trips are the most useful thing a tester can send.</p>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand-lockup" href="index.html">
+      <svg viewBox="0 0 300 300" aria-hidden="true"><rect x="0" y="0" width="300" height="300" rx="64" fill="#241E45"/><g transform="translate(12.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#17BEBB"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#0F7C79"/></g></g><g transform="translate(128.8,53.4)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#241E45" transform="scale(7.7)"/><g transform="scale(6.6)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#FFC145"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A67E2D"/></g></g><g transform="translate(54,72)"><g transform="scale(8.0)"><path d="M12 21s-8-7.5-8-13a8 8 0 1 1 16 0c0 5.5-8 13-8 13z" fill="#E65156"/><circle cx="12" cy="9" r="4.3" fill="#FFFFFF"/><circle cx="12" cy="9" r="2.3" fill="#A63A3E"/></g></g></svg>
+      <span>packbound</span>
+    </a>
+    <div class="foot-links">
+      <a href="index.html#features">Features</a>
+      <a href="index.html#privacy">Privacy</a>
+      <a href="privacy.html">Privacy policy</a>
+      <a href="delete-data.html">Delete my data</a>
+      <a href="mailto:support@packbound.net">Contact</a>
+      <a href="https://github.com/antonyjday/packbound" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/antonyjday/packbound/issues" target="_blank" rel="noopener">Feedback</a>
+    </div>
+    <div class="copyright">&copy; 2026 Packbound &middot; packbound.net</div>
+  </div>
+</footer>
+
+</body>
+</html>

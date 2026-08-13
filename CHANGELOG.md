@@ -1147,6 +1147,30 @@ list see [README.md](README.md).
       the route is nearest - the start itself, or somewhere further along
       - so the deviation trigger now stays quiet until the trip is
       actually under way, and still fires normally for a real detour.
+- [x] Made joining the closed beta self-service, so testers no longer
+      have to be added by hand in the Play Console. Individual tester
+      emails can only ever be entered manually - the Play Developer API's
+      `Testers` resource exposes `googleGroups[]` and nothing else, and
+      explicitly doesn't support email lists - so the only route to
+      automation is making the tester list a Google Group and letting
+      people add themselves to it. `packbound-testers@googlegroups.com`
+      is set to "Anyone can join", which means group membership (and so
+      test access) needs no action from us at all; Play picks up new
+      members without a Console edit or a new release.
+      New `website/beta.html` (served at `/beta`) walks through the two
+      steps this leaves for the tester: join the group, then opt in on
+      Play. Both steps have to use the *same* Google account as the
+      phone's Play Store, which is the overwhelmingly common reason these
+      links appear "broken", so that's an amber callout above the steps
+      rather than a FAQ entry further down. Every previously direct
+      Play-testing link across the site now points at `/beta` instead -
+      sending someone straight to the Play opt-in before they're in the
+      group just gets them an unhelpful "not available" - leaving the
+      only direct Play links on the beta page itself. Also added `/beta`
+      to the sitemap.
+      Note for whoever changes this next: the group address is hardcoded
+      in three places in `beta.html` (the join link, the leave link, and
+      the `+subscribe` mailto fallback).
 
 ## Needed before this is usable end-to-end
 

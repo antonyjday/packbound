@@ -44,8 +44,16 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<!-- Loaded non-render-blocking: preload it as data, then swap it to an
+     active stylesheet once fetched (the print/onload trick), so the page's
+     own text can paint immediately in a fallback font rather than waiting
+     on Google Fonts' CSS + font-file round trip. font-display:swap (in the
+     URL below) then swaps the real font in without a layout jump once it
+     lands. <noscript> covers the rare case of JS being unavailable. -->
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 
@@ -88,7 +96,10 @@
     </div>
     <div class="phone-mock-wrap">
       <div class="phone-mock">
-        <img src="hero-screenshot.png" alt="Packbound's map screen mid-trip, showing a turn-by-turn direction banner and the live route overlaid on the map" width="640" height="1422">
+        <picture>
+          <source srcset="hero-screenshot.webp" type="image/webp">
+          <img src="hero-screenshot.png" alt="Packbound's map screen mid-trip, showing a turn-by-turn direction banner and the live route overlaid on the map" width="560" height="1244" fetchpriority="high">
+        </picture>
       </div>
     </div>
   </div>
@@ -104,8 +115,11 @@
 
       <figure class="shot">
         <div class="shot-frame">
-          <img src="shot-tracking.jpg" width="560" height="1244" loading="lazy"
-               alt="Packbound's map during a trip, showing the planned route and four group members spread out along it at different distances">
+          <picture>
+            <source srcset="shot-tracking.webp" type="image/webp">
+            <img src="shot-tracking.jpg" width="520" height="1155" loading="lazy"
+                 alt="Packbound's map during a trip, showing the planned route and four group members spread out along it at different distances">
+          </picture>
         </div>
         <figcaption>Everyone on one map. The route ahead, and each person's
         own live distance and ETA - so you can see who's fallen behind
@@ -114,8 +128,11 @@
 
       <figure class="shot">
         <div class="shot-frame">
-          <img src="shot-messages.jpg" width="560" height="1244" loading="lazy"
-               alt="The quick message sheet open, listing one-tap presets such as Pulling over, Need fuel, and Wait for me">
+          <picture>
+            <source srcset="shot-messages.webp" type="image/webp">
+            <img src="shot-messages.jpg" width="520" height="1155" loading="lazy"
+                 alt="The quick message sheet open, listing one-tap presets such as Pulling over, Need fuel, and Wait for me">
+          </picture>
         </div>
         <figcaption>One tap tells the whole group what's happening. The
         presets change with how you're travelling - "Need fuel" on a drive,
@@ -124,8 +141,11 @@
 
       <figure class="shot">
         <div class="shot-frame">
-          <img src="shot-voice.jpg" width="560" height="1244" loading="lazy"
-               alt="An incoming voice message alert from a group member, with a play button and an OK button to dismiss">
+          <picture>
+            <source srcset="shot-voice.webp" type="image/webp">
+            <img src="shot-voice.jpg" width="520" height="1155" loading="lazy"
+                 alt="An incoming voice message alert from a group member, with a play button and an OK button to dismiss">
+          </picture>
         </div>
         <figcaption>Voice clips arrive as an alert that stays put until it's
         acknowledged, rather than a notification that's gone before you've

@@ -1,7 +1,16 @@
 /* Packbound marketing site - shared design system.
    Fixed brand look (ink hero, light body) rather than adapting to the
    visitor's OS theme - this is the same deliberate palette as the app
-   and brand guide, not something that should shift per viewer. */
+   and brand guide, not something that should shift per viewer.
+
+   CACHING: this file is served with a 1-year immutable Cache-Control
+   (see firebase.json) so repeat visitors don't refetch it - Lighthouse
+   was flagging the previous 1-hour default. That means a plain
+   redeploy of an edited styles.css will NOT reach anyone with a warm
+   cache. Every <link> tag that references this file uses
+   "styles.css?v=N" for exactly that reason - bump N in every HTML file
+   that has one whenever this file's content changes, so the new
+   content gets a URL nobody's cached yet. */
 
 :root {
   --ink: #241e45;

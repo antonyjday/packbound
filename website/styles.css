@@ -697,7 +697,12 @@ footer .copyright {
   margin-top: 8px;
 }
 
-.policy a {
+/* :not(.btn) so this prose-link colour doesn't outrank .btn-primary/
+   .btn-ghost-on-light's own text colour - it's more specific than a lone
+   class selector, and without the exclusion it was overriding the white
+   text on beta.html's coral buttons with dark red, illegible on the same
+   coral background. */
+.policy a:not(.btn) {
   color: var(--coral-dark);
 }
 

@@ -588,6 +588,29 @@ section {
   text-decoration: underline;
 }
 
+/* ---------- faq ---------- */
+
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 70ch;
+}
+
+.faq-item h3 {
+  font-size: 17px;
+  margin: 0 0 8px;
+}
+
+.faq-item p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.faq-item a {
+  color: var(--coral-dark);
+}
+
 /* ---------- final cta ---------- */
 
 .final-cta {

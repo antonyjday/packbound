@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Packbound — Live location sharing for your travel group</title>
-<meta name="description" content="Packbound keeps your travel group together with live location sharing, a shared route, and turn-by-turn navigation - no account, no ads, and your location data disappears the moment the trip ends.">
+<title>Packbound — Convoy & Group Travel Location Sharing</title>
+<meta name="description" content="Live location sharing for car convoys, cycling groups, walks, and train trips - a shared route, live ETAs, and turn-by-turn directions. No account, no ads.">
 <link rel="canonical" href="https://packbound.net/">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
@@ -12,14 +12,14 @@
      social media and in some search result previews. -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://packbound.net/">
-<meta property="og:title" content="Packbound — Live location sharing for your travel group">
-<meta property="og:description" content="Live position, a planned route, and turn-by-turn directions for your travel group - no account, no ads, and your location data disappears the moment the trip ends.">
+<meta property="og:title" content="Packbound — Convoy & Group Travel Location Sharing">
+<meta property="og:description" content="Live location sharing for car convoys, cycling groups, walks, and train trips - a shared route, live ETAs, and turn-by-turn directions. No account, no ads.">
 <meta property="og:image" content="https://packbound.net/og-image.png">
 <meta property="og:image:width" content="1024">
 <meta property="og:image:height" content="500">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Packbound — Live location sharing for your travel group">
-<meta name="twitter:description" content="Live position, a planned route, and turn-by-turn directions for your travel group - no account, no ads, and your location data disappears the moment the trip ends.">
+<meta name="twitter:title" content="Packbound — Convoy & Group Travel Location Sharing">
+<meta name="twitter:description" content="Live location sharing for car convoys, cycling groups, walks, and train trips - a shared route, live ETAs, and turn-by-turn directions. No account, no ads.">
 <meta name="twitter:image" content="https://packbound.net/og-image.png">
 
 <!-- Structured data - lets Google understand this is a specific app
@@ -31,7 +31,7 @@
   "@type": "MobileApplication",
   "name": "Packbound",
   "url": "https://packbound.net/",
-  "description": "Packbound keeps your travel group together with live location sharing, a shared route, and turn-by-turn navigation - no account, no ads, and your location data disappears the moment the trip ends.",
+  "description": "Live location sharing for car convoys, cycling groups, walks, and train trips - a shared route, live ETAs, and turn-by-turn directions. No account, no ads, and your location data disappears the moment the trip ends.",
   "applicationCategory": "TravelApplication",
   "operatingSystem": "Android",
   "offers": {
@@ -39,6 +39,58 @@
     "price": "0",
     "priceCurrency": "USD"
   }
+}
+</script>
+
+<!-- FAQPage structured data - text here must match the visible #faq
+     section exactly (Google requires that), so if you edit one, edit
+     the other. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is Packbound just for cars, or can I use it for cycling, walking, or train trips too?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "All four. Pick a trip type - Car, Train, Bicycle, or Walk - when you start a trip, and Packbound tunes the map, routing, and quick messages to match, whether that's a car convoy on a road trip, a group bike ride, a walking group, or travelling together by train."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is this a convoy tracker for road trips?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes - that's exactly the use case it was built for: knowing where every car in your convoy is, in real time, without anyone needing to call or text while driving. The same map, route, and ETA setup works identically for any group travelling together, not just convoys of cars."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is this different from Find My Friends or Life360?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Packbound is built around a single trip rather than continuous tracking. There's no account and no persistent profile beyond a display name, and your location history disappears the moment the trip ends rather than being retained indefinitely."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need to create an account?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Sign in with just a display name - no email, phone number, or password."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What happens to my location data after the trip?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It's deleted the instant the trip ends. Trip metadata (its name and who was in it) is kept for 30 days in case you want to look back on it, then permanently deleted - see the privacy policy for the full picture."
+      }
+    }
+  ]
 }
 </script>
 
@@ -53,7 +105,7 @@
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 
@@ -194,7 +246,7 @@
       <div class="feature-card">
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16v-2.7l1.8-4.3a1.5 1.5 0 0 1 1.4-1h8.6a1.5 1.5 0 0 1 1.4 1l1.8 4.3V16"/><path d="M4.5 16h15"/><circle cx="8" cy="17.3" r="1.4"/><circle cx="16" cy="17.3" r="1.4"/></svg></div>
         <h3>Trip type, mode-aware</h3>
-        <p>Car, Train, Bicycle, or Walk - tunes the map's zoom, the quick-message presets, and the actual travel mode used for routes and ETAs.</p>
+        <p>A car convoy on a road trip, a cycling group ride, a walking group, or travelling by train - pick a trip type and Packbound tunes the map's zoom, the quick-message presets, and the actual travel mode used for routes and ETAs.</p>
       </div>
 
       <div class="feature-card">
@@ -305,6 +357,43 @@
 
     </div>
     <p class="privacy-footnote">Packbound runs on Firebase (Google Cloud) for accounts, live sync, and push notifications, and the Google Maps Platform for maps and routing - both process data only as needed to run the app. See the <a href="privacy.html">full privacy policy</a> for details, or <a href="https://github.com/antonyjday/packbound" target="_blank" rel="noopener">browse the source</a> yourself.</p>
+  </div>
+</section>
+
+<section id="faq" class="section-alt">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Questions</p>
+      <h2>Common questions</h2>
+    </div>
+    <div class="faq-list">
+
+      <div class="faq-item">
+        <h3>Is Packbound just for cars, or can I use it for cycling, walking, or train trips too?</h3>
+        <p>All four. Pick a trip type - Car, Train, Bicycle, or Walk - when you start a trip, and Packbound tunes the map, routing, and quick messages to match, whether that's a car convoy on a road trip, a group bike ride, a walking group, or travelling together by train.</p>
+      </div>
+
+      <div class="faq-item">
+        <h3>Is this a convoy tracker for road trips?</h3>
+        <p>Yes - that's exactly the use case it was built for: knowing where every car in your convoy is, in real time, without anyone needing to call or text while driving. The same map, route, and ETA setup works identically for any group travelling together, not just convoys of cars.</p>
+      </div>
+
+      <div class="faq-item">
+        <h3>How is this different from Find My Friends or Life360?</h3>
+        <p>Packbound is built around a single trip rather than continuous tracking. There's no account and no persistent profile beyond a display name, and your location history disappears the moment the trip ends rather than being retained indefinitely.</p>
+      </div>
+
+      <div class="faq-item">
+        <h3>Do I need to create an account?</h3>
+        <p>No. Sign in with just a display name - no email, phone number, or password.</p>
+      </div>
+
+      <div class="faq-item">
+        <h3>What happens to my location data after the trip?</h3>
+        <p>It's deleted the instant the trip ends. Trip metadata (its name and who was in it) is kept for 30 days in case you want to look back on it, then permanently deleted - see the <a href="privacy.html">privacy policy</a> for the full picture.</p>
+      </div>
+
+    </div>
   </div>
 </section>
 

@@ -2385,10 +2385,18 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           // reason.
           final isLandscapeButtonRail =
               MediaQuery.of(context).orientation == Orientation.landscape;
+          // On 3-button-nav devices, rotating to landscape moves the
+          // Back/Home/Recents bar off the bottom edge (already handled via
+          // padding.bottom elsewhere) and onto whichever side edge is now
+          // "down" - reported as the roster/voice buttons sitting behind
+          // it. left/right is 0 on gesture-nav devices and in portrait, so
+          // this is a no-op there.
+          final systemPadding = MediaQuery.of(context).padding;
           double railTop(int index) =>
               isLandscapeButtonRail ? 12 : 12 + index * 56.0;
           double railRight(int index) =>
-              isLandscapeButtonRail ? 12 + index * 56.0 : 12;
+              (isLandscapeButtonRail ? 12 + index * 56.0 : 12) +
+              systemPadding.right;
 
           // Next turn-by-turn instruction, if any - recomputed fresh from
           // wherever this device currently is on every rebuild (cheap local
@@ -2533,12 +2541,14 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                       onCameraIdle: () => _programmaticCameraMove = false,
                       myLocationEnabled: true,
                       // Without this, the native zoom +/- buttons sit flush
-                      // with the bottom edge and end up under the OS
-                      // gesture/nav bar on 3-button-nav devices - push them
-                      // up by however much system UI the OS is actually
-                      // reserving there.
+                      // with the bottom-right corner and end up under the OS
+                      // gesture/nav bar on 3-button-nav devices - bottom in
+                      // portrait, right in landscape (see systemPadding
+                      // comment above) - push them in by however much system
+                      // UI the OS is actually reserving there.
                       padding: EdgeInsets.only(
                         bottom: MediaQuery.of(context).padding.bottom,
+                        right: MediaQuery.of(context).padding.right,
                       ),
                     ),
 
@@ -2548,7 +2558,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     // splitting them across two corners.
                     Positioned(
                       top: 12,
-                      left: 12,
+                      left: 12 + systemPadding.left,
                       child: FloatingActionButton.small(
                         heroTag: 'toggleSharing',
                         onPressed: _toggleSharing,
@@ -2570,7 +2580,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     // rather than the route-dependent step/skip buttons.
                     Positioned(
                       top: 12,
-                      left: 68,
+                      left: 68 + systemPadding.left,
                       child: FloatingActionButton.small(
                         heroTag: 'quickMessage',
                         onPressed: _showQuickMessageSheet,
@@ -2592,8 +2602,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     // "talk" repeatedly benefits from it being right above
                     // where their thumb already rests near the zoom controls.
                     Positioned(
-                      bottom: 130 + MediaQuery.of(context).padding.bottom,
-                      right: 12,
+                      bottom: 130 + systemPadding.bottom,
+                      right: 12 + systemPadding.right,
                       child: GestureDetector(
                         onTap: () => _recordingVoice
                             ? _stopAndSendPushToTalk()
@@ -2738,9 +2748,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     // stack sits lower (bottom: 4 instead of 24) so its bottom
                     // edge lines up with the Google Maps zoom-out button in the
                     // opposite corner - landscape keeps 24 since the zoom
-                    // controls sit differently there. Both also add the
-                    // system gesture/nav bar inset, otherwise it sits under
-                    // the OS bar on 3-button-nav devices.
+                    // controls sit differently there. Also adds the system
+                    // gesture/nav bar inset on every edge it touches,
+                    // otherwise it sits under the OS bar on 3-button-nav
+                    // devices - bottom in portrait, left or right (whichever
+                    // side the bar rotates onto) in landscape.
                     // Chase mode has no shared `route` to anchor these chips
                     // on once one hasn't been set (or was ignored) - shown
                     // instead whenever there's a personal ETA to display at
@@ -2753,9 +2765,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                     Orientation.landscape
                                 ? 24
                                 : 4) +
-                            MediaQuery.of(context).padding.bottom,
-                        left: 24,
-                        right: 24,
+                            systemPadding.bottom,
+                        left: 24 + systemPadding.left,
+                        right: 24 + systemPadding.right,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,

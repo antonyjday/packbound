@@ -1190,6 +1190,18 @@ list see [README.md](README.md).
       the perfectly straight edges of the surrounding layout. The source
       PNG itself was never tilted, so removing the transform was the
       whole fix.
+- [x] Fixed the roster/refit/recenter/step/skip rail, the push-to-talk
+      mic button, and the route-info chip stack sitting behind the OS
+      Back/Home/Recents bar in landscape on 3-button-nav devices.
+      Reported from real-world testing on a Pixel 6 Pro. Every one of
+      these was already inset from the bottom edge via
+      `MediaQuery.padding.bottom` (see the two entries above), but that
+      only covers the portrait case - rotate to landscape and the same
+      bar moves onto whichever side edge is now "down", which nothing
+      was reading `padding.left`/`padding.right` to avoid. Google Maps'
+      own zoom controls had the same problem via the map widget's
+      `padding` property. All now add the matching side inset alongside
+      the existing bottom one.
 
 ## Needed before this is usable end-to-end
 
